@@ -1,0 +1,10 @@
+# Python 3.13; bounded compatible releases, not an experiment lockfile.
+gymnasium>=1.2,<2
+numpy>=2.2,<3
+torch>=2.7,<3
+pandas>=2.2.3,<4
+matplotlib>=3.10,<4
+streamlit>=1.45,<2
+PyYAML>=6.0.2,<7
+pytest>=8.3,<10
+ruff>=0.11,<1

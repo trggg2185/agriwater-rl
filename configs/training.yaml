@@ -1,0 +1,22 @@
+# Cau hinh khoi dau de xuat, khong phai gia tri toi uu da kiem chung.
+seed: 42
+q_learning:
+  episodes: 1000
+  gamma: 0.99
+  learning_rate: 0.1
+  epsilon_start: 1.0
+  epsilon_end: 0.05
+  epsilon_decay: 0.995
+  state_bins: null # can thong nhat cach roi rac hoa
+dqn:
+  episodes: 1000
+  gamma: 0.99
+  learning_rate: 0.001
+  epsilon_start: 1.0
+  epsilon_end: 0.05
+  epsilon_decay: 0.995
+  batch_size: 64
+  replay_buffer_size: 10000
+  target_update_steps: 100
+  hidden_sizes: [64, 64]
+  device: cpu

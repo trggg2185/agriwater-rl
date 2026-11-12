@@ -1,0 +1,29 @@
+# Quy uoc mo phong, chua duoc hieu chuan bang du lieu thuc dia.
+max_days: 30
+default_scenario: random
+action_liters: [0, 5, 10, 15, 20, 25]
+moisture:
+  ideal_default: [0.40, 0.70]
+  ideal_stage_2: [0.50, 0.75]
+  stress_bounds: [0.20, 0.85]
+reward:
+  health: 10
+  stress: -100
+  water_per_action: -2
+  waste_per_action: -10
+  rain_per_action: -5
+  delay_per_action: -8
+  waste_moisture: 0.60
+  rain_probability: 0.70
+  rain_forecast_mm: 15
+  previous_irrigation_liters: 12.5
+# null: can hai thanh vien thong nhat truoc khi trien khai; khong dung nhu so 0.
+water_balance:
+  plot_area_m2: null # m2; can de quy doi 1 mm mua = 1 lit/m2
+  soil_capacity_liters: null # lit tai do am chuan hoa 1
+  irrigation_efficiency: null # ty le 0-1
+  rain_efficiency: null # ty le 0-1
+  evapotranspiration_liters_per_day: null # lit/ngay; mo hinh nhiet do chua chot
+  drainage_liters_per_day: null # lit/ngay; mo hinh tieu thoat chua chot
+growth_stage_days: null # moc chuyen giai doan theo ngay, chua chot
+biological_termination: null # dieu kien sinh hoc chua chot

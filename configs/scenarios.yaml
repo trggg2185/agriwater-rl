@@ -1,0 +1,16 @@
+# Tham so phan phoi chua chot; null khong phai khong co mua.
+dry:
+  description: Kho han, it mua
+  temperature_range_c: null
+  rain_probability_range: null
+  rain_amount_range_mm: null
+stormy:
+  description: Mua nhieu
+  temperature_range_c: null
+  rain_probability_range: null
+  rain_amount_range_mm: null
+random:
+  description: Thoi tiet thay doi ngau nhien
+  temperature_range_c: null
+  rain_probability_range: null
+  rain_amount_range_mm: null
