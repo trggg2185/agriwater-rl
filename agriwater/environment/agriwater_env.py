@@ -34,8 +34,14 @@ class AgriWaterEnv(gym.Env):
     metadata = {"render_modes": ["ansi"]}
 
     def __init__(
-        self, scenario: str = "random", max_days: int = 30, render_mode: str | None = None
+        self,
+        scenario: str | None = None,
+        max_days: int | None = None,
+        render_mode: str | None = None,
     ) -> None:
+        defaults = load_config("environment")
+        scenario = defaults["default_scenario"] if scenario is None else scenario
+        max_days = defaults["max_days"] if max_days is None else max_days
         if scenario not in {"dry", "stormy", "random"}:
             raise ValueError("scenario must be dry, stormy or random")
         if isinstance(max_days, bool) or not isinstance(max_days, int) or max_days < 1:
@@ -80,7 +86,12 @@ class AgriWaterEnv(gym.Env):
                 _number(factor, key, 0, float("inf"))
         for key in ("ideal_default", "ideal_stage_2", "stress_bounds"):
             self._bounds(c.get("moisture", {}).get(key), key)
-        self._bounds(c.get("biological_termination"), "biological_termination")
+        death_low, death_high = self._bounds(
+            c.get("biological_termination"), "biological_termination"
+        )
+        stress_low, stress_high = c["moisture"]["stress_bounds"]
+        if not death_low < stress_low < stress_high < death_high:
+            raise ValueError("biological_termination must lie outside stress_bounds")
         days = c.get("growth_stage_days")
         if not isinstance(days, list) or len(days) != 3:
             raise ValueError("growth_stage_days must contain three increasing positive days")
@@ -101,6 +112,7 @@ class AgriWaterEnv(gym.Env):
     ) -> tuple[np.ndarray, dict[str, Any]]:
         """Initialize from config/options and copy max_days+1 weather records."""
         self._done = True
+        self._state = None
         super().reset(seed=seed)
         options = {} if options is None else options
         if not isinstance(options, dict) or set(options) - {
@@ -189,7 +201,9 @@ class AgriWaterEnv(gym.Env):
         )
         nxt[1], nxt[6] = next_stage / 3, water / 25
         self._set_weather(nxt, day)
-        reward, components = calculate_reward(state.copy(), int(action), nxt.copy())
+        reward, components = calculate_reward(
+            state.copy(), int(action), nxt.copy(), config=self._config
+        )
         low, high = np.asarray(self._config["biological_termination"], dtype=np.float32)
         terminated = bool(nxt[2] <= low or nxt[2] >= high)
         truncated = day >= self.max_days

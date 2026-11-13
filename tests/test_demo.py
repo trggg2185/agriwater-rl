@@ -220,3 +220,18 @@ def test_main_reports_existing_csv(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     path.write_text("old", encoding="utf-8")
     with pytest.raises(SystemExit, match="already exists"):
         main(["--action", "1", "--output", str(path)])
+
+
+@pytest.mark.parametrize("scenario", ["dry", "stormy", "random"])
+def test_real_environment_demo(scenario, tmp_path):
+    first = run_episode(scenario, seed=42)
+    assert first == run_episode(scenario, seed=42)
+    assert 1 <= len(first) <= 30
+    assert first[-1]["terminated"] or first[-1]["truncated"]
+    for row in first:
+        assert row["water_used_liters"] == row["action"] * 5
+        assert row["reward"] == sum(row[key] for key in REWARD_KEYS)
+        assert 0 <= row["soil_moisture"] <= 1
+    path = write_csv(first, tmp_path / "new" / "run.csv")
+    with path.open(encoding="utf-8", newline="") as stream:
+        assert len(list(csv.DictReader(stream))) == len(first)

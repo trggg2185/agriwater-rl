@@ -27,9 +27,33 @@ def test_invalid_scenario() -> None:
         AgriWaterEnv(scenario="unknown")
 
 
-@pytest.mark.skip(reason="Integration awaits Minh's loader/reward and agreed physical parameters")
 def test_gymnasium_contract() -> None:
     check_env(AgriWaterEnv(), skip_render_check=True)
+
+
+def test_episode_reward_uses_same_snapshot_as_dynamics(monkeypatch):
+    from agriwater.config import load_config
+    from agriwater.environment import agriwater_env
+
+    config = load_config("environment")
+    config["reward"]["health"] = 17
+    monkeypatch.setattr(agriwater_env, "load_config", lambda name: config)
+    env = AgriWaterEnv()
+    env.reset(seed=42, options={"soil_moisture": 0.55, "weather": fixed_weather()})
+    config["reward"]["health"] = 99
+    _, reward, _, _, info = env.step(0)
+    assert reward == info["reward_components"]["R_health"] == 17
+
+
+def test_defaults_follow_yaml(monkeypatch):
+    from agriwater.config import load_config
+    from agriwater.environment import agriwater_env
+
+    config = load_config("environment")
+    config.update(max_days=2, default_scenario="dry")
+    monkeypatch.setattr(agriwater_env, "load_config", lambda name: config)
+    env = AgriWaterEnv()
+    assert env.max_days == 2 and env.scenario == "dry"
 
 
 @pytest.fixture
@@ -76,7 +100,7 @@ def isolated(monkeypatch):
 
     monkeypatch.setattr(agriwater_env, "load_config", loader)
     monkeypatch.setattr(weather, "load_config", loader)
-    monkeypatch.setattr(agriwater_env, "calculate_reward", lambda s, a, n: (0.0, {}))
+    monkeypatch.setattr(agriwater_env, "calculate_reward", lambda s, a, n, **kwargs: (0.0, {}))
     return config, scenarios
 
 
@@ -99,7 +123,7 @@ def test_balance_and_reward_arguments(isolated, monkeypatch):
 
     captured = []
 
-    def reward(state, action, next_state):
+    def reward(state, action, next_state, **kwargs):
         captured.append((state.copy(), action, next_state.copy()))
         return 123.0, {"test_only": 123.0}
 
@@ -232,7 +256,7 @@ def test_null_config_rejected(isolated):
 def test_reward_failure_is_atomic(isolated, monkeypatch):
     from agriwater.environment import agriwater_env
 
-    def missing(*args):
+    def missing(*args, **kwargs):
         raise NotImplementedError("Reward pending")
 
     monkeypatch.setattr(agriwater_env, "calculate_reward", missing)

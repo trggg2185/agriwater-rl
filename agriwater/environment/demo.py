@@ -44,6 +44,8 @@ def _validate_action(action: int | None) -> None:
 def _validate_seed(seed: int) -> None:
     if isinstance(seed, (bool, np.bool_)) or not isinstance(seed, (int, np.integer)):
         raise TypeError("seed must be an integer")
+    if seed < 0:
+        raise ValueError("seed must be non-negative")
 
 
 def _record(
@@ -102,7 +104,8 @@ def write_csv(
     path = Path(output)
     if path.exists() and not force:
         raise FileExistsError(f"{path} already exists; pass force=True or --force to overwrite")
-    with path.open("w", newline="", encoding="utf-8") as handle:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w" if force else "x", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=RECORD_COLUMNS)
         writer.writeheader()
         writer.writerows(records)

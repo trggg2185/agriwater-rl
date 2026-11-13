@@ -31,7 +31,12 @@ def test_agent_interface() -> None:
         assert list(signature.parameters) == ["self", "state", "training"]
         assert signature.parameters["training"].default is False
     assert not hasattr(BaselineAgent, "learn")
-    assert list(inspect.signature(calculate_reward).parameters) == ["state", "action", "next_state"]
+    assert list(inspect.signature(calculate_reward).parameters) == [
+        "state",
+        "action",
+        "next_state",
+        "config",
+    ]
 
 
 def test_configuration_contract() -> None:

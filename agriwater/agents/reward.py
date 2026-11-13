@@ -2,7 +2,6 @@
 
 import math
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Any
 
 import numpy as np
@@ -66,13 +65,10 @@ def _unit_interval(value: np.float32, label: str) -> np.float32:
     return value
 
 
-@lru_cache(maxsize=1)
-def _reward_settings() -> _RewardSettings:
-    """Load and validate reward coefficients once per process.
-
-    Tests that change configuration must call ``_reward_settings.cache_clear()``.
-    """
-    config = load_config("environment")
+def _reward_settings(config: dict[str, Any] | None = None) -> _RewardSettings:
+    """Validate an episode snapshot or load the current standalone configuration."""
+    if config is None:
+        config = load_config("environment")
     reward = config.get("reward")
     moisture = config.get("moisture")
     if not isinstance(reward, dict):
@@ -88,10 +84,10 @@ def _reward_settings() -> _RewardSettings:
     )
     rain_forecast_mm = np.float32(_number(reward, "rain_forecast_mm", "reward"))
     previous_irrigation_liters = np.float32(_number(reward, "previous_irrigation_liters", "reward"))
-    if rain_forecast_mm < 0:
-        raise ValueError("reward.rain_forecast_mm must be non-negative")
-    if previous_irrigation_liters < 0:
-        raise ValueError("reward.previous_irrigation_liters must be non-negative")
+    if not 0 <= rain_forecast_mm <= 50:
+        raise ValueError("reward.rain_forecast_mm must lie in [0, 50]")
+    if not 0 <= previous_irrigation_liters <= 25:
+        raise ValueError("reward.previous_irrigation_liters must lie in [0, 25]")
 
     ideal_default = _bounds(moisture, "ideal_default", "moisture")
     ideal_stage_2 = _bounds(moisture, "ideal_stage_2", "moisture")
@@ -140,7 +136,7 @@ def _action(value: Any) -> int:
 
 def _decoded_code(value: np.float32, label: str) -> int:
     code = int(round(float(value) * _CODE_COUNT))
-    if not 0 <= code <= _CODE_COUNT:
+    if not 0 <= code <= _CODE_COUNT or value != np.float32(code / _CODE_COUNT):
         raise ValueError(f"{label} does not decode to a code in 0..{_CODE_COUNT}")
     return code
 
@@ -154,7 +150,11 @@ def _previous_irrigation_liters(observation: np.ndarray) -> np.float32:
 
 
 def calculate_reward(
-    state: np.ndarray, action: int, next_state: np.ndarray
+    state: np.ndarray,
+    action: int,
+    next_state: np.ndarray,
+    *,
+    config: dict[str, Any] | None = None,
 ) -> tuple[float, dict[str, float]]:
     """Return total and R_health/R_stress/R_water/R_waste/R_rain/R_delay.
 
@@ -162,7 +162,7 @@ def calculate_reward(
     All thresholds are compared in float32 so boundaries match the observation
     representation exactly.
     """
-    settings = _reward_settings()
+    settings = _reward_settings(config)
     current = _observation(state, "state")
     following = _observation(next_state, "next_state")
     action_index = _action(action)

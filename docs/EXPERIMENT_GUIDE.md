@@ -1,5 +1,10 @@
 # Kế hoạch kiểm thử môi trường v0.1
 
+**Sau merge:** đã chạy thật ba scenario và kiểm thử tích hợp (163 passed, không
+skip). Xem BAO_CAO_MOI_TRUONG.md để lấy lệnh chạy và bảng kết quả hiện tại. Các
+ghi chú “chờ null/dependency” ở phần kế hoạch cũ bên dưới đã được giải quyết bằng
+cấu hình demo có ghi giả định; chưa phải hiệu chuẩn nông học.
+
 Tài liệu này mô tả cách kiểm chứng môi trường, reward và demo không học. Chưa có
 huấn luyện, loss, hội tụ hay so sánh thuật toán; các phần đó để giai đoạn sau.
 
