@@ -2,6 +2,12 @@
 
 ## Trạng thái
 
+> **Cập nhật sau bàn giao:** nhánh `feature/environment` đã merge vào
+> `feature/reward-demo` qua PR #1. `load_config` và `calculate_reward` của Minh đã
+> có; YAML vật lý vẫn `null` nên `reset()` thật và `check_env` tích hợp còn chờ chốt
+> cấu hình. Toàn suite hiện 154 passed, 1 skipped. Các đoạn dưới mô tả trạng thái
+> tại thời điểm bàn giao.
+
 Đã viết dynamics, reset/step/render, weather và unit tests. Chưa nghiệm thu toàn
 hệ thống: load_config và calculate_reward vẫn là TODO của Minh, YAML còn null.
 Chạy reset thật hiện sẽ gặp NotImplementedError từ loader. Không có fallback giả.

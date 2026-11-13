@@ -12,14 +12,14 @@ môi trường thử nghiệm, reward và demo không học. Chưa triển khai 
 |---|---|---|
 | `config.py` + `tests/test_config.py` | Xong trên `feature/reward-demo` | `load_config` cho 3 tên, giữ `null`, lỗi rõ |
 | `reward.py` + `tests/test_reward.py` | Xong trên `feature/reward-demo` | Sáu thành phần, validate, biên float32 |
-| `demo.py` + `tests/test_demo.py` | Xong code + unit test | Chờ environment thật để chạy 3 scenario |
-| `agriwater_env.py`, `weather.py` | Xong trên `feature/environment` | Chưa merge; xem `TRUONG_HANDOFF.md` trên nhánh đó |
+| `demo.py` + `tests/test_demo.py` | Xong code + unit test | Chờ chốt YAML để chạy 3 scenario thật |
+| `agriwater_env.py`, `weather.py` + `tests/test_environment.py` | Đã merge vào `feature/reward-demo` (PR #1) | Xem `TRUONG_HANDOFF.md` |
 | YAML vật lý/weather | Còn `null` | Phải chốt trước khi chạy thật |
 | Baseline, Q-Learning, DQN, train, evaluation, dashboard | Chưa làm | Giai đoạn sau |
 
-Kết quả tham khảo: `feature/reward-demo` có 135 passed, 1 skipped (`check_env`);
-`feature/environment` báo 28 passed, 2 skipped tại bàn giao. Luôn chạy lại trên
-nhánh đang làm; không coi skipped là nghiệm thu.
+Kết quả tham khảo: `feature/reward-demo` có 154 passed, 1 skipped; skip duy nhất là
+`check_env` tích hợp vì YAML vật lý còn `null`. Luôn chạy lại trên nhánh đang làm;
+không coi skipped là nghiệm thu.
 
 ## Phân công
 
@@ -29,8 +29,9 @@ nhánh đang làm; không coi skipped là nghiệm thu.
 | Nguyễn Minh | `agriwater/config.py`, `agriwater/agents/reward.py`, `agriwater/environment/demo.py`, các test tương ứng | Loader chung, sáu thành phần reward, demo hành động cố định/ngẫu nhiên và CSV | Giải chuẩn hóa đúng, tổng reward khớp thành phần, không sửa input; demo chạy được 3 scenario sau tích hợp |
 
 Hai người bắt đầu từ cùng commit bộ khung trên `main`, làm riêng trên
-`feature/environment` và `feature/reward-demo`. Không thay reward bằng kết quả giả
-để tuyên bố môi trường đã hoàn thành.
+`feature/environment` và `feature/reward-demo`; environment đã merge vào
+`feature/reward-demo` qua PR #1. Không thay reward bằng kết quả giả để tuyên bố môi
+trường đã hoàn thành.
 
 ## Checklist của Minh
 
@@ -50,14 +51,14 @@ Hai người bắt đầu từ cùng commit bộ khung trên `main`, làm riêng
 
 Còn chờ:
 
-- [ ] Chạy `run_episode` thật cho `dry`, `stormy`, `random` sau khi merge environment.
+- [ ] Chạy `run_episode` thật cho `dry`, `stormy`, `random` sau khi chốt YAML.
 - [ ] Ghi kết quả ba scenario và CSV mẫu vào `results/` hoặc mô tả trong PR.
 - [ ] Gửi Trưởng ví dụ reward chuẩn, biên float32, cách dùng loader và lệnh demo.
 - [ ] Cùng Trưởng chốt giá trị YAML; không tự sửa phần vật lý.
 
 ## Checklist của Trưởng
 
-Đã xong trên `feature/environment`:
+Đã xong và đã merge vào `feature/reward-demo`:
 
 - [x] `reset()` tái lập với cùng seed; inject weather qua `options`.
 - [x] `step()` tính cân bằng nước, cập nhật stage và `last_irrigation`.
@@ -67,8 +68,9 @@ Còn chờ:
 
 Còn chờ:
 
-- [ ] Merge `feature/environment` sau khi loader/reward của Minh sẵn sàng.
-- [ ] Bỏ skip `test_gymnasium_contract`, chạy `check_env` với loader/reward thật.
+- [x] Merge `feature/environment` sau khi loader/reward của Minh sẵn sàng.
+- [ ] Bỏ skip `test_gymnasium_contract`, chạy `check_env` với loader/reward thật
+      sau khi chốt YAML vật lý.
 - [ ] Chốt và điền các giá trị `null` trong `environment.yaml`/`scenarios.yaml`.
 - [ ] Chạy lại toàn suite và ba scenario cùng Minh trước nghiệm thu.
 
@@ -91,7 +93,8 @@ hợp, không đưa placeholder thành công vào production.
 ## Thứ tự tích hợp
 
 1. Minh đã bàn giao loader/reward/demo trên `feature/reward-demo`.
-2. Trưởng review loader/reward, merge `feature/environment` và nối vào `step`.
+2. Trưởng review loader/reward, merge `feature/environment` và nối vào `step` (đã xong
+   qua PR #1).
 3. Hai người chốt giá trị YAML v0.1 bằng PR riêng; cập nhật `DESIGN_CONTRACT.md`.
 4. Minh chạy demo thật ba scenario; cả hai chạy toàn suite, `check_env` và kiểm tra
    tái lập.

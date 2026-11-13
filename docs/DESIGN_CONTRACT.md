@@ -1,9 +1,9 @@
 # Hợp đồng kỹ thuật AgriWater-RL
 
-**Cập nhật triển khai của Trưởng:** xem TRUONG_HANDOFF.md về schema vật lý đề xuất,
-công thức, reset/step/render đã viết và trạng thái tích hợp. Observation/action và
-reward không đổi. Thêm render_mode=None|"ansi" tùy chọn; render trả str|None.
-Giá trị vật lý vẫn chưa chốt; loader/reward thuộc Minh và chưa triển khai.
+**Cập nhật triển khai:** environment/weather đã merge vào `feature/reward-demo` qua
+PR #1; loader/reward/demo đã có. Xem `TRUONG_HANDOFF.md` về schema vật lý, công thức,
+reset/step/render. Observation/action và reward không đổi; render_mode=None|"ansi".
+Giá trị vật lý/weather vẫn chưa chốt nên `check_env` tích hợp còn bị skip.
 
 Trưởng và Minh phải thống nhất trước khi thay đổi API, ý nghĩa dữ liệu hoặc cấu hình.
 Python sử dụng **3.13** theo quyết định của người dùng, thay cho 3.12 trong Prompt.md.
@@ -15,14 +15,13 @@ Python sử dụng **3.13** theo quyết định của người dùng, thay cho 
 - `agriwater/agents/reward.py`: sáu thành phần reward đã triển khai và có test biên.
 - `agriwater/environment/demo.py`: vòng lặp demo, CLI và CSV đã triển khai; unit test
   dùng environment giả, chờ chạy thật sau khi merge environment.
-- `agriwater/environment/agriwater_env.py` và `weather.py`: bản triển khai nằm ở
-  nhánh `feature/environment` (xem `docs/TRUONG_HANDOFF.md` trên nhánh đó). Trên
-  `main` và `feature/reward-demo` hiện vẫn là stub; chưa merge.
+- `agriwater/environment/agriwater_env.py` và `weather.py`: đã merge vào
+  `feature/reward-demo`; xem `docs/TRUONG_HANDOFF.md`. `main` có thể chậm hơn nhánh này.
 - Các khóa vật lý và phân phối weather trong YAML vẫn `null`. Bảng "Đề xuất v0.1"
   bên dưới là đề xuất để chạy thử, **chưa phải cấu hình đã chốt**; không coi `null` là 0.
-- Tại thời điểm cập nhật, nhánh `feature/reward-demo` có 135 passed, 1 skipped;
-  skip duy nhất là `check_env` thuộc phần environment. Nhánh `feature/environment`
-  báo 28 passed, 2 skipped tại bàn giao. Luôn chạy lại trên nhánh đang làm.
+- Tại thời điểm cập nhật, nhánh `feature/reward-demo` có 154 passed, 1 skipped;
+  skip duy nhất là `check_env` tích hợp vì YAML vật lý còn `null`. Luôn chạy lại
+  trên nhánh đang làm.
 
 ## Observation và action
 
@@ -251,7 +250,7 @@ Không tạo loader thứ hai.
 
 ## Đề xuất v0.1 (chưa chốt)
 
-Bảng dưới đây đồng bộ với schema nhánh `feature/environment`, dùng để chạy thử và
+Bảng dưới đây đồng bộ với schema environment hiện tại, dùng để chạy thử và
 viết test tích hợp. **Không đưa vào YAML production khi chưa có xác nhận của cả hai.**
 Không khẳng định đây là số liệu nông học hay FAO-56.
 

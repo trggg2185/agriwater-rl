@@ -1,15 +1,10 @@
 # AgriWater-RL
 
-**Cập nhật phần Minh:** loader cấu hình, reward sáu thành phần và demo không học đã
-triển khai trên `feature/reward-demo` (135 passed, 1 skipped). Environment/weather
-đã triển khai trên `feature/environment` nhưng chưa merge; YAML vật lý/weather vẫn
-`null`. Xem [DESIGN_CONTRACT](docs/DESIGN_CONTRACT.md) và [TASKS](docs/TASKS.md)
-để biết phần nào đã xong và phần nào còn chờ tích hợp.
-**Cập nhật phần Trưởng:** môi trường/thời tiết đã triển khai và có unit tests.
-Xem [bàn giao Trưởng](docs/TRUONG_HANDOFF.md) để biết schema, công thức và điểm nối
-cho Minh. Chạy toàn môi trường vẫn chờ loader/reward của Minh và giá trị cấu hình;
-các mô tả bootstrap bên dưới thể hiện điểm xuất phát, không phải trạng thái mới
-của environment/weather.
+**Cập nhật trạng thái:** loader cấu hình, reward sáu thành phần, demo không học và
+environment/weather đã có trên `feature/reward-demo` (154 passed, 1 skipped). YAML
+vật lý/weather vẫn `null` nên `check_env` tích hợp và demo thật còn chờ chốt cấu
+hình. Xem [DESIGN_CONTRACT](docs/DESIGN_CONTRACT.md), [TASKS](docs/TASKS.md) và
+[bàn giao Trưởng](docs/TRUONG_HANDOFF.md) để biết schema, công thức và điểm nối.
 
 **AI mới nhận dự án:** bắt đầu ở [AI_START_HERE](docs/AI_START_HERE.md), rồi đọc
 [hướng dẫn Trưởng](docs/AI_TRUONG.md) hoặc [hướng dẫn Minh](docs/AI_MINH.md).
@@ -62,14 +57,13 @@ main.py         (file có sẵn được giữ nguyên, không phải entry poin
 ```
 
 Đã có spaces, kiểm tra tham số khởi tạo, BaseAgent trừu tượng, loader cấu hình,
-reward sáu thành phần và demo không học. `config.py`, `reward.py`, `demo.py` cùng
-test tương ứng đã chạy trên `feature/reward-demo`. `agriwater_env.py`/`weather.py`
-mới là stub trên nhánh này; bản triển khai nằm ở `feature/environment` và chưa merge.
+reward sáu thành phần, demo không học và environment/weather. `config.py`,
+`reward.py`, `demo.py`, `agriwater_env.py` và `weather.py` cùng test tương ứng đã
+có trên `feature/reward-demo` (environment merge từ `feature/environment`).
 Baseline, Q-Learning, DQN, train, evaluate và metrics vẫn chưa triển khai.
 Dashboard chỉ hiện thông báo trạng thái bootstrap.
 Các hệ số vật lý/weather chưa chốt là `null`; tuyệt đối không thay `null` bằng 0
-để chạy thử. Demo có thể chạy với environment giả trong unit test, nhưng chưa có
-kết quả mô phỏng thật cho tới khi merge environment và chốt YAML.
+để chạy thử. Unit test demo dùng environment giả; demo/reset thật còn chờ chốt YAML.
 
 ## Cài đặt Windows 10/11 và PowerShell
 
@@ -115,12 +109,12 @@ Chạy từ thư mục gốc:
 .venv/Scripts/python.exe -m compileall -q agriwater tests
 ```
 
-Tests kiểm tra imports, YAML, spaces/interface, loader, reward và demo. Trên
-`feature/reward-demo`: 135 passed, 1 skipped; skip duy nhất là `check_env` thuộc
-phần environment chưa merge. Trên `feature/environment`: 28 passed, 2 skipped tại
-bàn giao. Số liệu thay đổi theo nhánh; luôn chạy lại. Trên Linux/macOS dùng
-`.venv/bin/python` thay cho `.venv/Scripts/python.exe`. Ruff bỏ qua `main.py`
-có sẵn để không thay đổi nội dung người dùng; mã mới trong agriwater đều được kiểm tra.
+Tests kiểm tra imports, YAML, spaces/interface, loader, reward, demo và environment.
+Trên `feature/reward-demo`: 154 passed, 1 skipped; skip duy nhất là `check_env` tích
+hợp vì YAML vật lý còn `null`. Số liệu thay đổi theo nhánh; luôn chạy lại. Trên
+Linux/macOS dùng `.venv/bin/python` thay cho `.venv/Scripts/python.exe`. Ruff bỏ qua
+`main.py` có sẵn để không thay đổi nội dung người dùng; mã mới trong agriwater đều
+được kiểm tra.
 
 ## Demo không học và đọc cấu hình
 
@@ -144,7 +138,8 @@ python -m agriwater.environment.demo --scenario stormy --seed 42 --action 4 \
 `--output` không ghi đè file cũ; thêm `--force` nếu muốn thay. CSV có 16 cột:
 `day`, `action`, `water_used_liters`, `actual_rain_mm`, `soil_moisture`, `reward`,
 `is_ideal`, `is_stressed`, `terminated`, `truncated` và sáu cột reward.
-Demo cần environment thật; trên nhánh này mới chạy được unit test với environment giả.
+Demo cần YAML vật lý hợp lệ; hiện các khóa còn `null` nên chỉ unit test với
+environment giả chạy được, chưa có CSV thật.
 
 ## Huấn luyện và đánh giá sau này
 
@@ -156,9 +151,9 @@ Xem [hướng dẫn thực nghiệm](docs/EXPERIMENT_GUIDE.md) trước khi xây
 
 ## Cộng tác và quy tắc
 
-Minh đã hoàn thành loader, reward và demo trên `feature/reward-demo`; Trưởng đã
-hoàn thành environment/weather trên `feature/environment`. Bước tiếp theo là review,
-merge hai nhánh và chốt các giá trị YAML còn `null`. File chung cần trao đổi trước
+Minh đã hoàn thành loader, reward và demo; Trưởng đã hoàn thành environment/weather
+và đã merge vào `feature/reward-demo`. Bước tiếp theo là review, chốt các giá trị
+YAML còn `null` rồi chạy `check_env`/demo thật. File chung cần trao đổi trước
 khi thay đổi; chi tiết tại [TASKS](docs/TASKS.md).
 Dùng feature/... → PR → người còn lại review → merge, không push trực tiếp main.
 Ví dụ lệnh Git và xử lý xung đột tại [CONTRIBUTING](docs/CONTRIBUTING.md).
@@ -179,8 +174,9 @@ truy xuất từ YAML; đọc [DESIGN_CONTRACT](docs/DESIGN_CONTRACT.md) trướ
 - Tải thư viện thất bại: kiểm tra mạng, proxy, dung lượng; chạy lại pip và đọc lỗi.
   Không tắt kiểm tra TLS. PyTorch có thể tải khá lâu.
 - Torch lỗi DLL: kiểm tra Windows 64-bit, Python chuẩn và runtime Visual C++ phù hợp.
-- NotImplementedError khi reset/step trên `main`: environment mới là stub; bản triển
-  khai nằm ở `feature/environment` và cần merge. `train`/`evaluate` vẫn là bootstrap.
+- NotImplementedError khi reset/step trên `main`: environment mới là stub; nhánh
+  `feature/reward-demo` đã có environment nhưng reset cần chốt YAML vật lý.
+  `train`/`evaluate` vẫn là bootstrap.
 - Demo báo thiếu cấu hình: YAML vật lý/weather còn `null`; xem TASKS, không điền 0.
 - .idea vẫn hiện trong Git: file đã staged/tracked từ trước không bị .gitignore loại bỏ.
 

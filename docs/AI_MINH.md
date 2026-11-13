@@ -7,8 +7,8 @@ feature/reward-demo. Có thể bắt đầu loader/reward bằng dữ liệu m�
 ## Trạng thái
 
 Đã xong trên `feature/reward-demo`: loader, reward, demo và các test tương ứng.
-Còn chờ merge `feature/environment` và chốt giá trị YAML để chạy demo thật ba
-scenario, bỏ skip `check_env` và nghiệm thu tích hợp.
+Environment/weather đã merge vào nhánh này qua PR #1. Còn chờ chốt giá trị YAML để
+chạy demo thật ba scenario, bỏ skip `check_env` và nghiệm thu tích hợp.
 
 ## Phạm vi sở hữu
 
@@ -89,7 +89,7 @@ dùng env giả trong tests, nhưng phải chạy demo thật với env của Tr
 ```
 
 Chạy `tests/test_config.py`, `tests/test_reward.py`, `tests/test_demo.py` và toàn
-suite. Trên `feature/reward-demo` hiện có 135 passed, 1 skipped (`check_env`).
+suite. Trên `feature/reward-demo` hiện có 154 passed, 1 skipped (`check_env`).
 Sau tích hợp chạy lại toàn suite và ba scenario. Gửi Trưởng ví dụ reward chuẩn,
 kết quả biên float32, cách dùng loader, lệnh demo thật và các dependency còn thiếu.
 Không báo đã có kết quả học thuật RL.
