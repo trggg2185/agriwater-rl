@@ -39,6 +39,15 @@ Không force push hay commit secret, môi trường ảo, checkpoint, log, dữ 
 .gitignore không bỏ theo dõi file đã staged/tracked; .idea hiện có được giữ nguyên,
 hai thành viên tự xem xét việc bỏ theo dõi riêng sau khi bảo toàn thay đổi.
 
+## File chung và thay đổi công thức
+
+`configs/environment.yaml`, `configs/scenarios.yaml`, `docs/DESIGN_CONTRACT.md`
+và các interface chung phải được cả hai review trước merge. Sau khi chốt v0.1,
+không tự đổi công thức cân bằng nước/thời tiết/reward hoặc ngưỡng mà không có PR,
+test và cập nhật hợp đồng. `null` trong YAML là chưa quyết định, không phải 0;
+không điền số tùy ý để làm test chạy qua. Docs mô tả trạng thái phải ghi rõ nhánh
+nào đã triển khai và phần nào còn chờ tích hợp.
+
 ## Bàn giao để AI của người kia tiếp tục
 
 PR phải ghi mục tiêu, file sửa, API/schema thay đổi, ví dụ input/output và đơn vị,

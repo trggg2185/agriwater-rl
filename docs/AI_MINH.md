@@ -4,6 +4,12 @@
 feature/reward-demo. Có thể bắt đầu loader/reward bằng dữ liệu mẫu ngay khi Trưởng
 đang viết môi trường, không cần chờ reset/step.
 
+## Trạng thái
+
+Đã xong trên `feature/reward-demo`: loader, reward, demo và các test tương ứng.
+Còn chờ merge `feature/environment` và chốt giá trị YAML để chạy demo thật ba
+scenario, bỏ skip `check_env` và nghiệm thu tích hợp.
+
 ## Phạm vi sở hữu
 
 - agriwater/agents/reward.py và tests/test_reward.py.
@@ -54,16 +60,16 @@ Ví dụ test chuẩn (các giá trị ghi bằng đơn vị thực, phải chu�
 Thêm test từng penalty bật/tắt riêng, trước/sau mốc giai đoạn, tổng bằng tổng
 components, input không đổi, và input sai. Bỏ skip test reward khi đã triển khai.
 
-## Bước 3 — demo sau khi môi trường tích hợp
+## Bước 3 — demo không học (đã triển khai, chờ tích hợp)
 
 Giữ run_episode(scenario="random",seed=42,action=None)->list[dict]. action=None
 lấy mẫu từ action_space với seed riêng; action 0..5 giữ cố định. Gọi reset, rồi
 step đến terminated hoặc truncated; đóng environment sau sử dụng. Không truy
 cập private state và không tự tính lại reward hoặc dự báo mưa trong demo.
 
-CLI dự kiến cần triển khai: --scenario dry|stormy|random, --seed số nguyên,
---action 0..5 tùy chọn, --output đường dẫn CSV tùy chọn. Đây là đặc tả tương lai,
-hiện các tham số chưa được hỗ trợ. Không ghi đè CSV cũ âm thầm.
+CLI đã triển khai: --scenario dry|stormy|random, --seed số nguyên,
+--action 0..5 tùy chọn, --output đường dẫn CSV tùy chọn và --force để ghi đè.
+Không ghi đè CSV cũ âm thầm; thiếu --force thì báo lỗi rõ.
 
 Mỗi record gồm day, action, water_used_liters, actual_rain_mm, soil_moisture,
 reward, is_ideal, is_stressed, terminated, truncated và đủ sáu reward components
@@ -82,6 +88,8 @@ dùng env giả trong tests, nhưng phải chạy demo thật với env của Tr
 .venv/Scripts/python.exe -m ruff format --check agriwater tests
 ```
 
-Chạy thêm test_config/test_demo khi đã tạo. Sau tích hợp chạy toàn suite và ba
-scenario. Gửi Trưởng ví dụ reward chuẩn, kết quả biên float32, cách dùng loader,
-lệnh demo thật và các dependency còn thiếu. Không báo đã có kết quả học thuật RL.
+Chạy `tests/test_config.py`, `tests/test_reward.py`, `tests/test_demo.py` và toàn
+suite. Trên `feature/reward-demo` hiện có 135 passed, 1 skipped (`check_env`).
+Sau tích hợp chạy lại toàn suite và ba scenario. Gửi Trưởng ví dụ reward chuẩn,
+kết quả biên float32, cách dùng loader, lệnh demo thật và các dependency còn thiếu.
+Không báo đã có kết quả học thuật RL.
