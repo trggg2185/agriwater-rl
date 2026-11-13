@@ -3,6 +3,13 @@
 Đọc AI_START_HERE.md và DESIGN_CONTRACT.md trước. Nhánh đề xuất:
 feature/environment, xuất phát cùng phiên bản bộ khung với Minh.
 
+## Trạng thái
+
+Bản triển khai environment/weather nằm ở nhánh `feature/environment`, kèm
+`docs/TRUONG_HANDOFF.md` trên chính nhánh đó. Loader/reward/demo của Minh đã có
+trên `feature/reward-demo`. Còn review/merge hai nhánh và chốt các giá trị YAML;
+các bước dưới giữ nguyên làm hướng dẫn triển khai và kiểm thử.
+
 ## Phạm vi sở hữu
 
 - agriwater/environment/agriwater_env.py: reset/step/render, cân bằng nước.

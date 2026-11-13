@@ -24,17 +24,19 @@ Nếu tài liệu mâu thuẫn, báo rõ mâu thuẫn; không tự sửa hợp �
 
 | Thành phần | Có gì | Còn thiếu |
 |---|---|---|
-| AgriWaterEnv | Constructor, spaces và kiểm tra scenario/max_days | reset, step, render, dynamics |
-| weather.py | WeatherDay và chữ ký generate_weather | Sinh thời tiết |
-| reward.py | Chữ ký calculate_reward | Sáu thành phần và validation |
-| config.py | Chữ ký load_config | Đọc YAML và lỗi cấu hình |
-| demo.py | Chữ ký run_episode, entry point báo chưa triển khai | Vòng lặp, CLI, CSV |
-| tests | Test spaces, interface, YAML/import | Test mô phỏng/reward đang skip |
+| AgriWaterEnv | Constructor, spaces trên `main`; bản đầy đủ ở `feature/environment` | Merge và chốt YAML vật lý |
+| weather.py | Chữ ký trên `main`; bản đầy đủ ở `feature/environment` | Merge và chốt phân phối |
+| reward.py | Sáu thành phần, validation, test biên trên `feature/reward-demo` | Chạy tích hợp với environment thật |
+| config.py | `load_config` cho 3 tên, giữ `null`, test lỗi trên `feature/reward-demo` | Không còn |
+| demo.py | `run_episode`, CLI, CSV, `--force` trên `feature/reward-demo` | Chạy ba scenario với environment thật |
+| tests | 135 passed, 1 skipped trên `feature/reward-demo`; 28 passed, 2 skipped trên `feature/environment` | Bỏ skip `check_env` sau merge |
 | agents/train/evaluation | Interface cho giai đoạn sau | Không triển khai tuần này |
 
-Kết quả kiểm tra tại bàn giao: 9 passed, 2 skipped. Đây là mốc tham khảo, hãy chạy
-lại trên nhánh của bạn. Hai skip không chứng minh reward hoặc môi trường hoạt động.
-Hệ số vật lý và phân phối weather trong YAML còn null, không được mặc định thành 0.
+Kết quả kiểm tra thay đổi theo nhánh; hãy chạy lại trên nhánh của bạn. Một skip
+`check_env` và các test tích hợp chưa chạy không chứng minh môi trường hoàn tất.
+`docs/TRUONG_HANDOFF.md` chỉ có trên nhánh `feature/environment`.
+Hệ số vật lý và phân phối weather trong YAML còn `null`, không được mặc định thành 0.
+Bảng giá trị v0.1 trong DESIGN_CONTRACT là đề xuất, chưa phải cấu hình đã chốt.
 
 ## 3. Kiểm tra trước khi sửa
 
