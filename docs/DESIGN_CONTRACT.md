@@ -1,5 +1,10 @@
 # Hợp đồng kỹ thuật AgriWater-RL
 
+**Cập nhật triển khai của Trưởng:** xem TRUONG_HANDOFF.md về schema vật lý đề xuất,
+công thức, reset/step/render đã viết và trạng thái tích hợp. Observation/action và
+reward không đổi. Thêm render_mode=None|"ansi" tùy chọn; render trả str|None.
+Giá trị vật lý vẫn chưa chốt; loader/reward thuộc Minh và chưa triển khai.
+
 Trưởng và Minh phải thống nhất trước khi thay đổi API, ý nghĩa dữ liệu hoặc cấu hình.
 Python sử dụng **3.13** theo quyết định của người dùng, thay cho 3.12 trong Prompt.md.
 Đây là bootstrap, chưa có mô hình nông học hay thuật toán hoàn chỉnh.

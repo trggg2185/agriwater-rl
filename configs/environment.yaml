@@ -25,5 +25,15 @@ water_balance:
   rain_efficiency: null # ty le 0-1
   evapotranspiration_liters_per_day: null # lit/ngay; mo hinh nhiet do chua chot
   drainage_liters_per_day: null # lit/ngay; mo hinh tieu thoat chua chot
+  et_temperature_slope: null # L/ngay/do C tren 15 C; de xuat ET tuyen tinh
+  crop_factors: null # list 4 he so khong don vi, theo ma cay 0-3
+  stage_factors: null # list 4 he so khong don vi, theo giai doan 0-3
+  drainage_threshold: null # do am 0-1 bat dau tieu thoat
+  repeat_irrigation_threshold_liters: null # L, nguong anh huong tuoi lap
+  repeat_irrigation_efficiency: null # 0-1, nhan hieu suat khi tuoi lap
 growth_stage_days: null # moc chuyen giai doan theo ngay, chua chot
 biological_termination: null # dieu kien sinh hoc chua chot
+initial_state:
+  crop_type: null # ma nguyen 0-3
+  growth_stage: null # ma nguyen 0-3
+  soil_moisture_range: null # [low, high] trong [0,1], uniform khi reset

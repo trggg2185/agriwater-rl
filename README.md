@@ -5,6 +5,11 @@ triển khai trên `feature/reward-demo` (135 passed, 1 skipped). Environment/we
 đã triển khai trên `feature/environment` nhưng chưa merge; YAML vật lý/weather vẫn
 `null`. Xem [DESIGN_CONTRACT](docs/DESIGN_CONTRACT.md) và [TASKS](docs/TASKS.md)
 để biết phần nào đã xong và phần nào còn chờ tích hợp.
+**Cập nhật phần Trưởng:** môi trường/thời tiết đã triển khai và có unit tests.
+Xem [bàn giao Trưởng](docs/TRUONG_HANDOFF.md) để biết schema, công thức và điểm nối
+cho Minh. Chạy toàn môi trường vẫn chờ loader/reward của Minh và giá trị cấu hình;
+các mô tả bootstrap bên dưới thể hiện điểm xuất phát, không phải trạng thái mới
+của environment/weather.
 
 **AI mới nhận dự án:** bắt đầu ở [AI_START_HERE](docs/AI_START_HERE.md), rồi đọc
 [hướng dẫn Trưởng](docs/AI_TRUONG.md) hoặc [hướng dẫn Minh](docs/AI_MINH.md).
