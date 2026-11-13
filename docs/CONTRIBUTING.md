@@ -1,5 +1,8 @@
 # Cộng tác với GitHub Flow
 
+AI đọc AI_START_HERE.md và hướng dẫn vai trò trước khi sửa. Các lệnh Git trong
+tài liệu là ví dụ, không phải ủy quyền tự commit/push/merge.
+
 main là nhánh ổn định, không push trực tiếp. Mỗi chức năng dùng feature/...;
 Conventional Commits (feat, fix, docs, test, chore). Người còn lại review PR trước merge.
 Không đổi API hoặc sửa file người khác phụ trách khi chưa trao đổi.
@@ -35,3 +38,12 @@ Nếu muốn hủy lần merge đang xung đột, dùng `git merge --abort`.
 Không force push hay commit secret, môi trường ảo, checkpoint, log, dữ liệu nhạy cảm.
 .gitignore không bỏ theo dõi file đã staged/tracked; .idea hiện có được giữ nguyên,
 hai thành viên tự xem xét việc bỏ theo dõi riêng sau khi bảo toàn thay đổi.
+
+## Bàn giao để AI của người kia tiếp tục
+
+PR phải ghi mục tiêu, file sửa, API/schema thay đổi, ví dụ input/output và đơn vị,
+nguồn/giả định của hệ số, dependency vào nhánh kia, lệnh test với số passed/skipped/
+failed và việc cần làm tiếp. Phân biệt mock với kiểm tra tích hợp thật.
+Quyết định chung phải ghi trong DESIGN_CONTRACT, không chỉ nằm trong chat riêng.
+Chọn file cụ thể khi stage, kiểm tra staged diff; tránh đưa thay đổi của người khác
+vào commit. Không reset --hard/clean toàn cây để xử lý xung đột.

@@ -1,8 +1,18 @@
 # AgriWater-RL
 
+**AI mới nhận dự án:** bắt đầu ở [AI_START_HERE](docs/AI_START_HERE.md), rồi đọc
+[hướng dẫn Trưởng](docs/AI_TRUONG.md) hoặc [hướng dẫn Minh](docs/AI_MINH.md).
+Các tài liệu có phạm vi file, API, thứ tự triển khai và tiêu chí nghiệm thu để
+làm việc mà không cần lịch sử cuộc hội thoại.
+
 Dự án môn Học tăng cường của **Nguyễn Thế Trưởng** và **Nguyễn Minh**:
 hỗ trợ quyết định tưới tiêu để tiết kiệm nước và duy trì độ ẩm phù hợp cho cây.
 Đây là **bộ khung khởi tạo**, chưa phải hệ thống tưới tiêu có thể sử dụng thực tế.
+
+**Phạm vi tuần này:** chuẩn bị cấu trúc chung để Trưởng và Minh tự xây dựng môi
+trường thử nghiệm theo mục III–IV của `docs/HocTangCuongN10_HoanChinh.docx`.
+Trưởng triển khai môi trường/thời tiết; Minh triển khai reward và demo. Các thuật
+toán baseline, Q-Learning, DQN, huấn luyện và benchmark dành cho giai đoạn sau.
 
 Các thành phần dự kiến: môi trường Gymnasium và thời tiết, Rule-based Baseline,
 Tabular Q-Learning, DQN, huấn luyện, đánh giá và dashboard Streamlit.
@@ -15,7 +25,8 @@ trong Prompt.md theo lựa chọn của người dùng; Prompt.md được giữ
 ```text
 agriwater/
   __init__.py
-  environment/  (__init__.py, agriwater_env.py, weather.py)
+  config.py     (interface đọc cấu hình chung, chưa triển khai)
+  environment/  (__init__.py, agriwater_env.py, weather.py, demo.py)
   agents/       (__init__.py, base_agent.py, baseline.py, q_learning.py, dqn.py, reward.py)
   training/     (__init__.py, train.py)
   evaluation/   (__init__.py, evaluate.py, metrics.py)
@@ -43,6 +54,8 @@ cấu hình và kiểm thử hợp đồng. Reset/step/weather/reward/agent/trai
 chưa triển khai và báo lỗi rõ ràng. Dashboard chỉ hiện thông báo trạng thái bootstrap.
 Các test cho logic chưa có được skip với lý do cụ thể.
 Các hệ số vật lý chưa chốt là null; tuyệt đối không thay null bằng 0 để chạy thử.
+Demo hiện chỉ có chữ ký `run_episode(scenario, seed, action)` và entry point báo
+chưa triển khai; chưa có lệnh chạy mô phỏng hoặc dữ liệu thực nghiệm để sử dụng.
 
 ## Cài đặt Windows 10/11 và PowerShell
 
@@ -102,8 +115,9 @@ Xem [hướng dẫn thực nghiệm](docs/EXPERIMENT_GUIDE.md) trước khi xây
 
 ## Cộng tác và quy tắc
 
-Trưởng phụ trách môi trường, thời tiết, test môi trường, đánh giá và dashboard.
-Minh phụ trách reward, test reward, baseline, Q-Learning, DQN và train.
+Tuần này Trưởng viết môi trường, thời tiết và test môi trường; Minh viết reward,
+test reward và demo hành động cố định/ngẫu nhiên. Hai người có thể làm song song
+trên `feature/environment` và `feature/reward-demo`, cùng xuất phát từ main.
 File chung cần trao đổi trước khi thay đổi; chi tiết tại [TASKS](docs/TASKS.md).
 Dùng feature/... → PR → người còn lại review → merge, không push trực tiếp main.
 Ví dụ lệnh Git và xử lý xung đột tại [CONTRIBUTING](docs/CONTRIBUTING.md).

@@ -4,6 +4,14 @@ Trưởng và Minh phải thống nhất trước khi thay đổi API, ý nghĩa
 Python sử dụng **3.13** theo quyết định của người dùng, thay cho 3.12 trong Prompt.md.
 Đây là bootstrap, chưa có mô hình nông học hay thuật toán hoàn chỉnh.
 
+## Phạm vi theo báo cáo tuần này
+
+Nguồn: HocTangCuongN10_HoanChinh.docx, mục III–IV. Repository chỉ chuẩn bị interface,
+cấu hình và tài liệu để Trưởng/Minh tự triển khai môi trường, thời tiết, reward và
+demo không học. Mục V (thuật toán dự kiến) dành giai đoạn sau.
+Reward thuộc phản hồi môi trường dù giữ đường dẫn agents/reward.py để tương thích.
+Demo và config loader mới có chữ ký, chưa có logic thực thi.
+
 ## Observation và action
 
 Observation là `np.ndarray`, `dtype=np.float32`, `shape=(7,)`.
@@ -49,7 +57,14 @@ Ba kịch bản: dry (khô hạn), stormy (mưa nhiều), random (ngẫu nhiên)
 gồm temperature (°C), rain_probability, rain_forecast_mm và actual_rain_mm.
 Các chính sách phải dùng cùng chuỗi theo ngày, độc lập với hành động.
 Chỉ truyền cùng seed là chưa đủ nếu chính sách tiêu thụ RNG khác nhau.
-Trưởng cần chốt cơ chế truyền chuỗi qua reset options; không sửa chuỗi dùng chung.
+Đặc tả bàn giao cho hai nhánh (chưa triển khai): reset options nhận `weather` là
+list WeatherDay có max_days+1 bản ghi. Ngày t dùng dự báo/nhiệt độ của bản ghi t
+cho state trước action và actual_rain của bản ghi t cho chuyển trạng thái. Bản ghi
+cuối chỉ cung cấp thời tiết observation cuối. Không lộ actual_rain trước action;
+kiểm tra miền và sao chép chuỗi để không sửa dữ liệu caller.
+Options thêm: crop_type/growth_stage nguyên 0–3 và soil_moisture hữu hạn 0–1.
+Giá trị mặc định cần chốt trong cấu hình ban đầu, không tự điền số. Từ chối tên
+options sai. Cùng weather nhưng khác trạng thái đầu chưa phải đối chứng công bằng.
 
 ## Reward duy nhất
 
@@ -67,8 +82,8 @@ Các thành phần không thỏa điều kiện có giá trị 0; tổng bằng 
 | R_delay | −8 × action nếu last_irrigation của state ≥ 12,5 lít và action > 0 |
 
 Khoảng lý tưởng: giai đoạn 2 là [0,50; 0,75], còn lại [0,40; 0,70].
-Đề xuất dùng giai đoạn của next_state cho R_health vì giai đoạn cập nhật trước reward;
-hai thành viên cần xác nhận quy ước này và kiểm thử bước chuyển giai đoạn.
+Dùng giai đoạn next_state cho R_health theo công thức gt+1 tại mục III.2.3 của
+báo cáo; giải mã giá trị chuẩn hóa trước khi so sánh và kiểm thử bước chuyển giai đoạn.
 Dự báo và lần tưới trước phải giải chuẩn hóa (nhân 50 và 25).
 Hệ số thưởng nằm duy nhất trong configs/environment.yaml, không sao chép vào agent.
 
@@ -106,5 +121,13 @@ scenarios.yaml quản lý phân phối thời tiết; training.yaml quản lý s
 phân nhóm Q-Learning/DQN. Các giá trị training là đề xuất khởi đầu, không tối ưu đã chứng minh.
 Khi triển khai, mọi tham số thực nghiệm phải được đọc từ ba cấu hình này;
 các default của constructor là API tiện dụng, runner phải truyền giá trị đã đọc từ YAML.
-Chưa thêm config loader vì hiện chưa có runner sử dụng; phải dùng yaml.safe_load và
-kiểm tra schema/miền dữ liệu, từ chối null bắt buộc trước khi chạy mô phỏng.
+agriwater/config.py khai báo load_config(name), chưa triển khai. Minh viết loader,
+Trưởng review. Tên hợp lệ: environment/scenarios/training; đọc safe_load theo đường
+dẫn repository, kiểm tra mapping. Consumer kiểm tra phần cần dùng: reward không
+bị chặn bởi null vật lý, environment/weather phải từ chối null bắt buộc trước chạy.
+
+Các điểm phải chốt trước khi triển khai: mã cây, trạng thái đầu, hệ số ET/tiêu thoát,
+lịch giai đoạn, ngưỡng chết khác ngưỡng stress và phân phối weather. Không dùng các
+hệ số tự chọn như dữ liệu thực địa hoặc khẳng định là FAO-56. Nếu lịch sinh trưởng
+phụ thuộc ngày nhưng observation thiếu ngày, cần đánh giá lại tính Markov trước
+khi huấn luyện. Chưa tự thêm chiều observation hay chốt hệ số thay hai thành viên.
