@@ -22,6 +22,10 @@ Nếu tài liệu mâu thuẫn, báo rõ mâu thuẫn; không tự sửa hợp �
 
 ## 2. Trạng thái bàn giao thực tế
 
+**Cập nhật:** Trưởng đã triển khai environment/weather; đọc TRUONG_HANDOFF.md trước
+bảng bootstrap bên dưới. Unit tests hiện 28 passed, 2 skipped; tích hợp thật chờ
+Minh viết loader/reward và hai người chốt giá trị YAML. Không viết lại phần Trưởng.
+
 | Thành phần | Có gì | Còn thiếu |
 |---|---|---|
 | AgriWaterEnv | Constructor, spaces và kiểm tra scenario/max_days | reset, step, render, dynamics |

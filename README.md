@@ -1,5 +1,11 @@
 # AgriWater-RL
 
+**Cập nhật phần Trưởng:** môi trường/thời tiết đã triển khai và có unit tests.
+Xem [bàn giao Trưởng](docs/TRUONG_HANDOFF.md) để biết schema, công thức và điểm nối
+cho Minh. Chạy toàn môi trường vẫn chờ loader/reward của Minh và giá trị cấu hình;
+các mô tả bootstrap bên dưới thể hiện điểm xuất phát, không phải trạng thái mới
+của environment/weather.
+
 **AI mới nhận dự án:** bắt đầu ở [AI_START_HERE](docs/AI_START_HERE.md), rồi đọc
 [hướng dẫn Trưởng](docs/AI_TRUONG.md) hoặc [hướng dẫn Minh](docs/AI_MINH.md).
 Các tài liệu có phạm vi file, API, thứ tự triển khai và tiêu chí nghiệm thu để
