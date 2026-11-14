@@ -1,5 +1,9 @@
 # Bàn giao phần Trưởng: môi trường và thời tiết
 
+**Lưu trữ bàn giao trước merge.** Trạng thái mới: loader/reward đã tích hợp, YAML
+có cấu hình demo, Gymnasium thật và ba demo đạt. Đọc BAO_CAO_MOI_TRUONG.md trước;
+các câu “chờ Minh/null” và lệnh tạo nhánh bên dưới chỉ phản ánh thời điểm bàn giao.
+
 ## Trạng thái
 
 > **Cập nhật sau bàn giao:** nhánh `feature/environment` đã merge vào

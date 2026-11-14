@@ -65,48 +65,53 @@ Dashboard chỉ hiện thông báo trạng thái bootstrap.
 Các hệ số vật lý/weather chưa chốt là `null`; tuyệt đối không thay `null` bằng 0
 để chạy thử. Unit test demo dùng environment giả; demo/reset thật còn chờ chốt YAML.
 
-## Cài đặt Windows 10/11 và PowerShell
+- Để chạy và trình bày với thầy: [BAO_CAO_MOI_TRUONG](docs/BAO_CAO_MOI_TRUONG.md).
+- API và dữ liệu hiện hành: [DESIGN_CONTRACT](docs/DESIGN_CONTRACT.md).
+- Quy trình Git: [CONTRIBUTING](docs/CONTRIBUTING.md).
+- AI nhận việc: [AI_START_HERE](docs/AI_START_HERE.md). Các hướng dẫn vai trò và TRUONG_HANDOFF ghi lịch sử phân công; không làm lại các phần đã tích hợp.
 
-Cần Git, Python 3.13 bản chuẩn 64-bit (không phải free-threaded), VS Code tùy chọn.
-Cài Python từ [python.org](https://www.python.org/downloads/windows/), chọn Python
-Launcher và thêm Python vào PATH. Kiểm tra `py -3.13 --version`.
-Không cần GPU/CUDA. requirements.txt giới hạn dải phiên bản; chưa phải lockfile.
+## Cài đặt
 
-Clone bằng URL GitHub thực của nhóm (thay placeholder trước khi chạy):
-
-```powershell
-git clone <URL-REPOSITORY-CUA-NHOM>
-cd AgriWater-RL
-./scripts/setup.ps1
-```
-
-Script dùng đường dẫn thư mục dự án kể cả khi có dấu cách, giữ nguyên .venv có sẵn,
-kiểm tra Python 3.13, nâng pip, cài requirements và kiểm tra import/tensor CPU.
-Script không sửa ExecutionPolicy và không xóa môi trường sai phiên bản.
-
-Nếu PowerShell chặn script, cài thủ công (không cần activate hay đổi chính sách):
+Cần Python 3.13, Git; chạy CPU, không cần CUDA. Trong PowerShell tại gốc repo:
 
 ```powershell
-# Chi tao khi chua co .venv; khong ghi de moi truong hien co.
+# Chỉ tạo khi chưa có .venv
 py -3.13 -m venv .venv
-.venv/Scripts/python.exe --version
-.venv/Scripts/python.exe -m pip install --upgrade pip
 .venv/Scripts/python.exe -m pip install -r requirements.txt
-.venv/Scripts/python.exe -c "import gymnasium, numpy, torch, pandas, matplotlib, streamlit, yaml; print(torch.ones(1, device='cpu'))"
 ```
 
-Trong VS Code: cài extension Python, Ctrl+Shift+P → Python: Select Interpreter →
-chọn `.venv/Scripts/python.exe`. Nếu không thấy, dùng Enter interpreter path.
+Hoặc chạy `./scripts/setup.ps1`. Nếu chính sách PowerShell chặn script, dùng các lệnh thủ công trên; không cần đổi ExecutionPolicy. Không ghi đè môi trường có sẵn. VS Code: Python: Select Interpreter → .venv/Scripts/python.exe. Nếu chuyển thư mục/máy, kiểm tra lại interpreter; không chia sẻ .venv qua Git.
 
-## Kiểm tra nền tảng
+## Sửa lỗi import trong IDE
 
-Chạy từ thư mục gốc:
+`No module named ...` khi chạy thường do dùng nhầm Python hoặc chưa cài dependencies.
+`Unresolved reference` trong PyCharm cũng có thể do interpreter còn trỏ tới thư mục cũ
+sau khi đổi tên hoặc di chuyển dự án. Không sửa bằng cách tắt kiểm tra import.
+
+- PyCharm: Settings → Project → Python Interpreter → Add Interpreter → Add Local
+  Interpreter → chọn môi trường có sẵn tại `.venv/Scripts/python.exe` trong **thư mục
+  dự án hiện tại**. Mở thư mục gốc chứa `agriwater`, `configs` và `pyproject.toml`.
+- VS Code: Python: Select Interpreter → chọn cùng file `.venv/Scripts/python.exe`.
+- Sau khi thay cấu hình IDE bên ngoài ứng dụng, khởi động lại IDE để nạp lại SDK.
+  Nếu vẫn trỏ sai, chọn lại interpreter bằng giao diện Settings ở trên.
+- Khi chạy terminal, dùng lệnh đầy đủ bên dưới; `python` hoặc `pip` trần có thể
+  trỏ tới Python hệ thống. Chạy module bằng `-m` từ gốc repo, không chạy trực tiếp
+  `agriwater/environment/demo.py`.
 
 ```powershell
-.venv/Scripts/python.exe -m pytest
-.venv/Scripts/python.exe -m ruff check .
-.venv/Scripts/python.exe -m ruff format --check .
-.venv/Scripts/python.exe -m compileall -q agriwater tests
+.venv/Scripts/python.exe -m pip install -r requirements.txt
+.venv/Scripts/python.exe -m pip check
+.venv/Scripts/python.exe -c "import sys, gymnasium, numpy, pandas, streamlit, yaml, agriwater; print(sys.executable)"
+```
+
+Không commit `.idea` hoặc `.venv`: đường dẫn interpreter là cấu hình riêng từng máy.
+
+## Chạy thử
+
+**Giao diện tương tác (Streamlit):**
+
+```powershell
+.venv/Scripts/python.exe -m streamlit run agriwater/dashboard/app.py
 ```
 
 Tests kiểm tra imports, YAML, spaces/interface, loader, reward, demo và environment.
@@ -116,24 +121,41 @@ Linux/macOS dùng `.venv/bin/python` thay cho `.venv/Scripts/python.exe`. Ruff b
 `main.py` có sẵn để không thay đổi nội dung người dùng; mã mới trong agriwater đều
 được kiểm tra.
 
-## Demo không học và đọc cấu hình
+Không truyền --action thì chọn ngẫu nhiên; --action 0..5 giữ mức tưới 0/5/10/15/20/25 L. Đây là kiểm tra môi trường, không học. CSV đã tồn tại thì chọn tên mới hoặc thêm --force khi chủ động ghi đè. Thư mục cha tự được tạo.
 
-Reward và loader dùng được độc lập với environment:
+CSV có 16 cột: ngày, action, nước tưới, mưa, độ ẩm sau bước, reward, is_ideal/is_stressed, terminated/truncated và sáu reward components. Cây chết sớm không thể coi là tiết kiệm nước tốt.
 
-```python
-from agriwater.config import load_config
+## Kiểm tra
 
-environment = load_config("environment")
-print(environment["reward"]["health"])
+```powershell
+.venv/Scripts/python.exe -m pytest -q
+.venv/Scripts/python.exe -m ruff check .
+.venv/Scripts/python.exe -m ruff format --check .
 ```
 
-Demo chạy hành động cố định hoặc ngẫu nhiên, không học:
+Mốc kiểm tra tích hợp 13/11/2026: 163 passed, không skip, gồm Gymnasium thật và ba scenario. Nếu pytest lỗi quyền temp/cache cũ, xem lệnh dùng basetemp mới trong tài liệu báo cáo. Không xóa dữ liệu để xử lý lỗi quyền.
 
-```bash
-python -m agriwater.environment.demo --scenario dry --seed 42
-python -m agriwater.environment.demo --scenario stormy --seed 42 --action 4 \
-  --output results/stormy-fixed4.csv
-```
+## Cấu trúc
+
+| Thư mục/file | Vai trò |
+|---|---|
+| agriwater/environment | Môi trường Gymnasium, weather, CLI demo |
+| agriwater/agents/reward.py | Reward của môi trường, không phải thuật toán học |
+| agriwater/config.py | Đọc YAML chung |
+| configs/environment.yaml | Vật lý, ngưỡng, reward, trạng thái đầu |
+| configs/scenarios.yaml | Ba phân phối thời tiết |
+| configs/training.yaml | Đề xuất giai đoạn sau, chưa sử dụng để học |
+| tests | Kiểm thử đơn vị và tích hợp |
+| docs | Báo cáo DOCX, hướng dẫn và hợp đồng |
+| results, logs, models | Dữ liệu sinh ra, bị gitignore |
+| agents khác, training, evaluation | Interface cho tuần sau |
+| dashboard | Streamlit thử môi trường, biểu đồ và CSV; chưa so sánh thuật toán |
+
+main.py không phải entry point; Prompt.md là yêu cầu bootstrap lịch sử. Dùng lệnh python -m như trên.
+
+## Giới hạn và cộng tác
+
+Thông số demo trong YAML là giả định chưa hiệu chuẩn, không phải FAO-56 hoặc dữ liệu thực địa. Báo cáo DOCX còn một số chỗ chưa nhất quán (phút/ngày, ví dụ Q-table, Markov); file BAO_CAO_MOI_TRUONG giải thích lựa chọn triển khai. Không tự thêm chiều observation hoặc khẳng định hiệu quả RL.
 
 `--output` không ghi đè file cũ; thêm `--force` nếu muốn thay. CSV có 16 cột:
 `day`, `action`, `water_used_liters`, `actual_rain_mm`, `soil_moisture`, `reward`,

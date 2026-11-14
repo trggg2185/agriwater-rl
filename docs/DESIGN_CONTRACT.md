@@ -1,4 +1,4 @@
-# Hợp đồng kỹ thuật AgriWater-RL
+# Hợp đồng kỹ thuật hiện hành — môi trường AgriWater-RL
 
 **Cập nhật triển khai:** environment/weather đã merge vào `feature/reward-demo` qua
 PR #1; loader/reward/demo đã có. Xem `TRUONG_HANDOFF.md` về schema vật lý, công thức,
@@ -25,177 +25,73 @@ Python sử dụng **3.13** theo quyết định của người dùng, thay cho 
 
 ## Observation và action
 
-Observation là `np.ndarray`, `dtype=np.float32`, `shape=(7,)`.
-`spaces.Box(low=0.0, high=1.0, shape=(7,), dtype=np.float32)`.
+Observation là ndarray float32, shape=(7,), Box(0,1).
 
-| Index | Thuộc tính | Miền thực tế | Chuẩn hóa | Nguồn / cập nhật |
-|---|---|---|---|---|
-| 0 | crop_type | số nguyên 0–3 | crop_type / 3 | reset hoặc options |
-| 1 | growth_stage | số nguyên 0–3 | growth_stage / 3 | reset; tăng theo ngày |
-| 2 | soil_moisture | 0–1 | giữ nguyên | reset; cân bằng nước mỗi step |
-| 3 | temperature | 15–45 °C | (temperature − 15) / 30 | weather[day] |
-| 4 | rain_probability | 0–1 | giữ nguyên | weather[day] |
-| 5 | rain_forecast_mm | 0–50 mm | rain_forecast_mm / 50 | weather[day] |
-| 6 | last_irrigation | 0–25 lít | last_irrigation / 25 | lượng tưới của step trước |
+| Index | Thuộc tính | Miền thực | Chuẩn hóa |
+|---|---|---|---|
+| 0 | crop_type | int 0..3 | /3 |
+| 1 | growth_stage | int 0..3 | /3 |
+| 2 | soil_moisture | 0..1 | giữ nguyên |
+| 3 | temperature | 15..45°C | (T−15)/30 |
+| 4 | rain_probability | 0..1 | giữ nguyên |
+| 5 | rain_forecast_mm | 0..50 mm | /50 |
+| 6 | last_irrigation | 0..25 L | /25 |
 
-Không đổi thứ tự, số chiều hay chuẩn hóa. Giải mã trước khi xử lý nghiệp vụ:
+Mã cây/stage phải đúng biểu diễn float32 của 0,1/3,2/3,1; giải mã bằng round(value*3). Không làm tròn 0,5 thành mã hợp lệ. Last_irrigation là lượng tưới ở bước ngay trước, kể cả 0, không phải thời gian từ lần tưới cuối.
 
-```text
-crop_type      = round(observation[0] * 3)
-growth_stage   = round(observation[1] * 3)
-rain_forecast  = observation[5] * 50   # mm
-last_irrigation = observation[6] * 25  # lít
-```
+Discrete(6): action 0..5 ánh xạ [0,5,10,15,20,25] L. Từ chối bool, float và chỉ số ngoài miền. Không thay đổi thứ tự, chuẩn hóa hoặc số chiều mà không cập nhật hợp đồng/test.
 
-Không so sánh growth_stage đã chuẩn hóa với số nguyên 2. Reward kiểm tra shape,
-dtype, miền hữu hạn và mã cây/giai đoạn; environment kiểm tra thêm options/weather.
+## API và vòng đời
 
-`spaces.Discrete(6)`: action 0, 1, 2, 3, 4, 5 tương ứng 0, 5, 10, 15, 20, 25 lít.
-Action là chỉ số; water_liters là thể tích. Ánh xạ nằm trong `action_liters` của
-`configs/environment.yaml`, không hardcode trong agent hay demo.
+`AgriWaterEnv(scenario=None,max_days=None,render_mode=None)` lấy mặc định từ YAML (random,30), hoặc dùng override của caller. Một step là một ngày. render_mode hỗ trợ None và ansi.
 
-## Khởi tạo và reset
+`reset(*,seed=None,options=None)` trả (observation,info), gọi super().reset(seed=seed), lấy snapshot environment config. Options cho phép crop_type, growth_stage, soil_moisture, weather; tên sai bị từ chối. Không truyền trạng thái đầu thì dùng initial_state từ YAML. Last_irrigation khởi tạo 0.
 
-- `reset(*, seed=None, options=None) -> (observation, info)`; phải gọi
-  `super().reset(seed=seed)` để Gymnasium quản lý RNG.
-- Options hợp lệ: `crop_type`, `growth_stage`, `soil_moisture`, `weather`.
-  Từ chối tên options khác thay vì bỏ qua âm thầm.
-- Không truyền options thì đọc `initial_state` trong `environment.yaml`.
-- `weather` là list `max_days + 1` bản ghi. Không truyền thì gọi
-  `generate_weather(scenario, max_days + 1, seed=...)` trước khi agent hành động.
-- Cùng seed và cùng options phải cho cùng observation đầu và cùng chuỗi weather.
-- Reset info: `day=0`, nước tưới/mưa bằng 0, `reward_components={}` vì chưa có action.
+`step(action)` trả (observation,reward,terminated,truncated,info). Phải reset trước step và sau khi kết thúc; nếu sai ném ResetNeeded. Observation trả về là bản sao. Reward lỗi thì không lưu transition dở dang. `render()` trả chuỗi trạng thái khi mode=ansi, còn lại None.
 
-Đề xuất v0.1 (chưa chốt): `crop_type=0`, `growth_stage=0`,
-`soil_moisture ~ Uniform(0.35, 0.55)`.
+- terminated: độ ẩm sau bước ≤ngưỡng chết thấp hoặc ≥ngưỡng chết cao.
+- truncated: đạt max_days.
+- Hai cờ độc lập, **có thể cùng True** nếu chết đúng ngày cuối.
+- Stress <0,20/>0,85 chỉ là điều kiện reward, không phải chết cây tức thời.
 
-## Thời gian và Gymnasium
+## Info
 
-Một step = một ngày; mặc định tối đa 30 ngày/episode. Đây là quy ước mô phỏng,
-không phải thông số đã được kiểm chứng bằng dữ liệu thực địa.
+Info chứa day, water_used_liters, actual_rain_mm, soil_moisture, is_ideal, is_stressed, reward_components. Nước/mưa là của bước vừa thực hiện, không phải tổng tích lũy. Reset: day=0, nước/mưa=0, reward_components={}.
 
-- `step(action)` trả `(observation, reward, terminated, truncated, info)`.
-- `terminated=True` cho kết thúc sinh học; `truncated=True` khi đạt `max_days`.
-- Không dùng hai cờ thay thế nhau. Nếu cả hai cùng đúng, ưu tiên
-  `terminated=True` và `truncated=False`.
-- Phải `reset` trước `step` và sau khi episode kết thúc; step sau kết thúc phải lỗi rõ.
-- `render_mode=None | "ansi"`: `render()` trả `None` hoặc chuỗi, không mở cửa sổ.
+Sau step, water_balance chứa before_liters, irrigation_liters, rain_liters, evapotranspiration_liters, drainage_liters, after_liters. Reward components có đủ sáu khóa dưới đây. Không dùng private state trong demo/agent.
 
-Info tối thiểu:
+## Weather và tái lập
 
-| Khóa | Ý nghĩa |
+`generate_weather(scenario,days,*,seed)` trả list WeatherDay gồm temperature, rain_probability, rain_forecast_mm, actual_rain_mm. Sinh uniform từng biến trong bounds YAML, Bernoulli quyết định mưa; có mưa thì actual=forecast, không mưa thì actual=0. Đây là mô hình đơn giản, chưa có tương quan nhiều ngày hay sai số lượng mưa.
+
+Reset nhận list weather có max_days+1 bản ghi, kiểm tra miền và sao chép. Bản ghi t cung cấp dự báo/nhiệt độ observation trước action t và mưa thực của transition t→t+1. Bản ghi cuối chỉ cung cấp thời tiết observation cuối. Không đưa mưa thực vào observation trước action.
+
+Chuỗi được tạo trước, độc lập action; demo dùng RNG hành động riêng. Đối chứng cần cùng weather, cùng trạng thái đầu và cùng cấu hình, không chỉ cùng seed.
+
+## Reward
+
+`calculate_reward(state,action,next_state,*,config=None)` trả (float,dict[str,float]). Ba đối số cũ vẫn hợp lệ; config=None đọc YAML hiện tại. Environment truyền snapshot config để reward và dynamics dùng cùng hệ số suốt episode. Không còn lru_cache/cache_clear cho reward.
+
+| Khóa | Công thức |
 |---|---|
-| `day` | số ngày đã chạy sau step |
-| `water_used_liters` | lượng tưới của bước hiện tại |
-| `actual_rain_mm` | mưa thực của bước hiện tại |
-| `soil_moisture` | độ ẩm sau bước |
-| `is_ideal` | độ ẩm sau bước nằm trong khoảng lý tưởng |
-| `is_stressed` | độ ẩm sau bước ngoài `stress_bounds` |
-| `reward_components` | đúng sáu khóa của `calculate_reward` |
+| R_health | +10 nếu next moisture thuộc vùng lý tưởng |
+| R_stress | −100 nếu next moisture <0,20 hoặc >0,85 |
+| R_water | −2×action |
+| R_waste | −10×action nếu current moisture ≥0,60 |
+| R_rain | −5×action nếu current p≥0,70 và forecast≥15 mm |
+| R_delay | −8×action nếu current last_irrigation≥12,5 L |
 
-Bản environment hiện thêm `water_balance` để kiểm tra đơn vị. Có thể bổ sung
-`growth_stage` và `termination_reason` khi hai người thống nhất; đây là thay đổi
-schema nên phải ghi trong PR và cập nhật demo/test.
+Vùng lý tưởng theo next_stage: stage 2 là [0,50;0,75], còn lại [0,40;0,70], bao gồm biên. Không thỏa thì 0; action=0 thì phạt tưới=0. So sánh ngưỡng theo float32, không epsilon rộng. Tổng bằng tổng sáu thành phần, không sửa arrays đầu vào.
 
-## Thời tiết công bằng
+## Dynamics và đơn vị
 
-Ba kịch bản: dry (khô hạn), stormy (mưa nhiều), random (ngẫu nhiên).
-`generate_weather(scenario, days, *, seed) -> list[WeatherDay]` tạo trước toàn bộ
-chuỗi, gồm `temperature` (°C), `rain_probability`, `rain_forecast_mm`,
-`actual_rain_mm`. Dùng `np.random.default_rng(seed)` riêng; không dùng RNG của agent
-và không sinh lại weather theo action.
+Nước trước = moisture × capacity. Tưới hiệu dụng = lít tưới × hiệu suất; nhân thêm hệ số tưới lặp nếu lượng tưới trước đạt ngưỡng. Mưa hiệu dụng = mm × diện tích m² × hiệu suất (1 mm trên 1 m² = 1 L).
 
-Ngày `t` dùng dự báo/nhiệt độ của bản ghi `t` cho state trước action; chuyển
-`t → t+1` dùng `actual_rain_mm` của chính bản ghi `t`. Bản ghi cuối chỉ cung cấp
-thời tiết observation cuối. Không lộ `actual_rain_mm` trước khi agent chọn action.
-Sao chép chuỗi caller truyền vào để không sửa dữ liệu của người gọi.
+ET yêu cầu = (ET nền tại 15°C + slope×(T−15)) × crop_factor × stage_factor; ET thực không vượt nước sẵn có. Sau ET, tiêu thoát tối đa drainage_liters_per_day trên phần vượt drainage_threshold×capacity. Nước còn vượt capacity được cộng vào drainage như nước tràn. Nước sau = trước+tưới+mưa−ET−drainage; chia capacity ra next_moisture.
 
-Công thức v0.1 đang dùng trong nhánh environment (cần review):
+Thứ tự: giữ state cũ → tưới → weather ngày hiện tại → cân bằng → ngày/stage → next_state và dự báo kế tiếp → reward → cờ dừng → lưu state/trả kết quả. Stage=min(3,initial_stage+số mốc ngày đã đạt).
 
-```text
-temperature      ~ Uniform(range_c)
-rain_probability ~ Uniform(range_p)
-rain_forecast_mm ~ Uniform(range_mm)
-rain_occurs      = rng.random() < rain_probability
-actual_rain_mm   = rain_forecast_mm nếu rain_occurs, ngược lại 0
-```
-
-Đây là mô hình đơn giản, chưa có sai số dự báo hay tương quan nhiều ngày; không
-phải dữ liệu thực địa và không được gọi là FAO-56.
-
-## Reward duy nhất
-
-`calculate_reward(state, action, next_state) -> tuple[float, dict[str, float]]`
-trong `agents/reward.py`. Environment phải gọi hàm này, không có reward thứ hai.
-Các thành phần không thỏa điều kiện có giá trị 0; tổng bằng tổng dictionary.
-
-| Khóa | Điều kiện và giá trị |
-|---|---|
-| R_health | +10 nếu độ ẩm next_state trong khoảng lý tưởng (bao gồm hai biên) |
-| R_stress | −100 nếu độ ẩm next_state < 0,20 hoặc > 0,85 |
-| R_water | −2 × action |
-| R_waste | −10 × action nếu độ ẩm state ≥ 0,60 và action > 0 |
-| R_rain | −5 × action nếu dự báo state có xác suất ≥ 0,70 và lượng ≥ 15 mm, action > 0 |
-| R_delay | −8 × action nếu last_irrigation của state ≥ 12,5 lít và action > 0 |
-
-Khoảng lý tưởng: giai đoạn 2 là [0,50; 0,75], còn lại [0,40; 0,70].
-Dùng giai đoạn next_state cho R_health; dùng state cho waste/rain/delay.
-Dự báo và lần tưới trước phải giải chuẩn hóa (nhân 50 và 25).
-
-Quy tắc triển khai:
-
-- Hệ số nằm duy nhất trong `configs/environment.yaml` mục `reward` và `moisture`;
-  reward đọc một lần mỗi process bằng `lru_cache`. Khi test hoặc đổi cấu hình phải
-  gọi `_reward_settings.cache_clear()`; không sửa YAML giữa episode.
-- Validate `state`/`next_state` là `np.ndarray`, shape `(7,)`, `float32`, finite,
-  trong `[0,1]`; action là số nguyên 0–5, `bool` không hợp lệ.
-- So sánh ngưỡng bằng `np.float32(...)`, không dùng epsilon rộng làm đổi nghĩa điều kiện.
-- Luôn trả đủ sáu khóa, kể cả khi bằng 0; không sửa array đầu vào.
-- Ví dụ chuẩn: moisture 0,60; p 0,70; forecast 15 mm; last 12,5 L; action 2;
-  next moisture 0,90 → health 0, stress −100, water −4, waste −20, rain −10,
-  delay −16, tổng −150.
-
-## Chuyển trạng thái
-
-Nước sau bước = Nước trước bước + nước tưới hiệu dụng + nước mưa hiệu dụng
-− bốc thoát hơi − tiêu thoát. Đổi đơn vị trước khi cộng: 1 mm mưa trên 1 m²
-tương ứng 1 lít. Các hệ số vật lý chưa có dữ liệu nên để `null`; `null` không
-được diễn giải là 0.
-
-Thứ tự bắt buộc:
-
-1. Giữ bản sao state hiện tại và nhận action.
-2. Ánh xạ action sang lượng nước.
-3. Lấy thời tiết ngày hiện tại.
-4. Tính cân bằng nước và độ ẩm mới.
-5. Cập nhật giai đoạn nếu đến mốc.
-6. Xây dựng next_state, gán `last_irrigation` bằng lượng tưới vừa thực hiện.
-7. Tính reward từ state, action, next_state chưa bị ghi đè.
-8. Kiểm tra kết thúc sinh học và giới hạn ngày.
-9. Trả kết quả cho Agent.
-
-Công thức v0.1 đang dùng trong nhánh environment (mọi đại lượng theo lít):
-
-```text
-before       = m_t * soil_capacity_liters
-irrigation   = action_liters[action] * irrigation_efficiency
-               (* repeat_irrigation_efficiency nếu last_irrigation >= ngưỡng lặp)
-rain         = actual_rain_mm * plot_area_m2 * rain_efficiency
-demand       = (evapotranspiration_liters_per_day + et_temperature_slope * (T - 15))
-               * crop_factors[crop_type] * stage_factors[growth_stage]
-et           = min(before + irrigation + rain, demand)
-remaining    = before + irrigation + rain - et
-drainage     = min(max(0, remaining - soil_capacity_liters * drainage_threshold),
-                   drainage_liters_per_day)
-drainage    += max(0, remaining - drainage - soil_capacity_liters)  # nước tràn
-m_{t+1}      = (remaining - drainage) / soil_capacity_liters
-```
-
-Không dùng clip để che nước dư; phần vượt sức chứa phải đi vào tiêu thoát và được
-test. Nếu `m_{t+1}` ra ngoài `[0,1]`, đó là lỗi công thức/cấu hình cần sửa, không
-phải giá trị để che bằng clamp.
-
-## Giai đoạn sinh trưởng và kết thúc
+## Cấu hình và giới hạn
 
 Đề xuất v0.1 (chưa chốt): mốc `growth_stage_days = [8, 16, 24]` tính từ ngày reset.
 `next_stage = min(3, initial_stage + số mốc đã đạt)`.
@@ -278,15 +174,8 @@ Không khẳng định đây là số liệu nông học hay FAO-56.
 | Stormy | T ~ U(22, 30), p ~ U(0.3, 0.9), forecast ~ U(5, 40) mm |
 | Random | T ~ U(18, 38), p ~ U(0, 1), forecast ~ U(0, 40) mm |
 
-## Việc còn phải chốt
+Mặc định capacity=100 L, diện tích=1 m², trạng thái đầu crop/stage=0 và moisture uniform [0,40;0,70], mốc stage=[8,16,24], ngưỡng chết=[0,05;0,95]. Không coi đây là hệ số đã được thầy xác nhận hoặc chuẩn FAO-56.
 
-1. `crop_type` dùng 4 giá trị 0–3 (khớp observation/Q-table) hay số lượng khác?
-2. `WeatherDay[t]` là dự báo cho chuyển `t → t+1` và `actual_rain_mm` dùng cho chính
-   chuyển đó — có giữ đúng quy ước này không?
-3. Ngưỡng chết `[0.10, 0.95]` có tách đủ khỏi ngưỡng stress `[0.20, 0.85]` không?
-4. Chốt toàn bộ giá trị vật lý/weather v0.1 và ghi vào YAML bằng PR riêng.
-5. Có thêm `growth_stage`/`termination_reason` vào info không?
-6. Cấu hình bin Q-table 4.320 trạng thái có dùng chính thức không?
+Lịch sinh trưởng phụ thuộc ngày nhưng observation không có ngày; chưa khẳng định MDP đầy đủ. Cần thảo luận trước huấn luyện, không tự đổi bảy chiều lúc này. Mã cây là nhóm giả lập, chưa hiệu chuẩn theo giống thật.
 
-Các điểm trên phải được ghi trong PR và test tương ứng; không tự sửa hợp đồng để
-vượt test và không điền số tùy ý vào YAML.
+Các module agents khác/train/evaluate chỉ giữ interface cho tuần sau. Không chốt bins Q-table hoặc thuật toán trong phạm vi môi trường này.
