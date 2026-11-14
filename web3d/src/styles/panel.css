@@ -776,7 +776,8 @@
 }
 
 .panel__body--log .log__body {
-  max-height: min(60vh, 560px);
+  /* Thấp hơn trước để chừa chỗ cho dòng tổng hợp + hồ sơ ngày đang xem. */
+  max-height: min(46vh, 420px);
 }
 
 .log {
@@ -995,6 +996,289 @@
 
 .log__reward.is-pos {
   color: #2f8a4a;
+}
+
+/* Dòng tổng hợp "tới nay" dưới ba chip 7 ngày. */
+.log__story {
+  margin: 7px 0 0;
+  font-size: 10px;
+  line-height: 1.45;
+  color: #6f7a74;
+  font-variant-numeric: tabular-nums;
+}
+
+.log__story b {
+  font-weight: 700;
+  color: var(--panel-value);
+}
+
+.log__story b.is-pos {
+  color: #2f8a4a;
+}
+
+.log__story b.is-neg {
+  color: #c0554d;
+}
+
+/* Bộ lọc nhanh theo hành động. */
+.log__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 9px;
+}
+
+.log__filter {
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(29, 38, 33, 0.1);
+  background: rgba(255, 255, 255, 0.75);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  color: #6f7a74;
+  cursor: pointer;
+  transition:
+    background var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+
+.log__filter:hover {
+  background: #eef3ef;
+  color: #2b352f;
+}
+
+.log__filter[aria-pressed='true'] {
+  background: rgba(47, 179, 68, 0.14);
+  border-color: rgba(47, 179, 68, 0.42);
+  color: #2f7a43;
+}
+
+/* Hồ sơ ngày đang xem: đủ vector 7 chiều + phân rã điểm. */
+.log__detail {
+  margin-top: 9px;
+  padding: 9px 10px 10px;
+  border-radius: 11px;
+  border: 1px solid rgba(29, 38, 33, 0.09);
+  background: linear-gradient(180deg, #ffffff, #f7faf8);
+}
+
+.log__detail[hidden] {
+  display: none;
+}
+
+.log__detail-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+}
+
+/* Nút quay lại danh sách — hồ sơ ngày là một "chế độ xem", không phải chỗ chết. */
+.log__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 3px 6px;
+  border: 1px solid rgba(29, 38, 33, 0.12);
+  border-radius: 999px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #4a564f;
+  cursor: pointer;
+  transition:
+    background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+
+.log__back:hover {
+  background: #eef3ef;
+  border-color: rgba(29, 38, 33, 0.22);
+}
+
+.log__back:focus-visible {
+  outline: 2px solid rgba(47, 179, 68, 0.5);
+  outline-offset: 1px;
+}
+
+.log__back-arrow {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.log__detail-sub {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 9.5px;
+  color: #6f7873;
+}
+
+.log__detail-action {
+  color: #2f6fa8;
+  font-weight: 600;
+}
+
+.log__detail-day {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--panel-value);
+  font-variant-numeric: tabular-nums;
+}
+
+.log__detail-tag {
+  color: #6f7873;
+}
+
+.log__detail-status {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #eef2ef;
+  font-size: 9px;
+  font-weight: 600;
+  color: #6f7873;
+}
+
+.log__detail-status.is-good {
+  background: rgba(47, 179, 68, 0.14);
+  color: #2f7a43;
+}
+
+.log__detail-status.is-bad {
+  background: rgba(212, 87, 79, 0.14);
+  color: #b2463e;
+}
+
+.log__detail-status.is-note {
+  background: rgba(217, 161, 59, 0.16);
+  color: #8a6413;
+}
+
+.log__detail-reward {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--panel-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.log__detail-reward.is-pos {
+  color: #2f8a4a;
+}
+
+.log__detail-reward.is-neg {
+  color: #c0554d;
+}
+
+.log__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 10px;
+  margin-top: 8px;
+}
+
+.log__field {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+
+.log__field em {
+  font-style: normal;
+  font-size: 9.5px;
+  color: #9aa49e;
+  white-space: nowrap;
+}
+
+.log__field b {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #2b352f;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.log__field.is-good b {
+  color: #2f8a4a;
+}
+
+.log__field.is-bad b {
+  color: #b2463e;
+}
+
+.log__field.is-note b {
+  color: #8a6413;
+}
+
+.log__field.is-water b {
+  color: #2f6fa8;
+}
+
+.log__parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.log__part {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #f0f4f1;
+  font-size: 9px;
+}
+
+.log__part em {
+  font-style: normal;
+  color: #8b958f;
+}
+
+.log__part b {
+  font-weight: 700;
+  color: #3f4b45;
+  font-variant-numeric: tabular-nums;
+}
+
+.log__part.is-pos b {
+  color: #2f8a4a;
+}
+
+.log__part.is-neg b {
+  color: #c0554d;
+}
+
+.log__parts-empty {
+  margin: 8px 0 0;
+  font-size: 9.5px;
+  line-height: 1.4;
+  color: #9aa49e;
+}
+
+.log__empty {
+  padding: 14px 10px;
+  text-align: center;
+  font-size: 10px;
+  color: #9aa49e;
+}
+
+.log__empty[hidden] {
+  display: none;
+}
+
+/* Khi đóng hồ sơ, bảng được cao hơn để đọc lướt nhiều ngày. */
+.section.is-list .log__body {
+  max-height: min(64vh, 600px);
 }
 
 @media (max-width: 1365px) {
