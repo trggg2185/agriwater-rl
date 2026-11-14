@@ -1,6 +1,27 @@
 # Hợp đồng kỹ thuật hiện hành — môi trường AgriWater-RL
 
-Phạm vi: môi trường thử nghiệm đã tích hợp, chưa triển khai thuật toán. Python 3.13. Nguồn nghiệp vụ: mục III.2 và IV của docs/HocTangCuongN10_HoanChinh.docx. Chi tiết báo cáo và các điểm chưa nhất quán: [BAO_CAO_MOI_TRUONG](BAO_CAO_MOI_TRUONG.md). Hợp đồng này thay thế các đề xuất trước merge.
+**Cập nhật triển khai:** environment/weather đã merge vào `feature/reward-demo` qua
+PR #1; loader/reward/demo đã có. Xem `TRUONG_HANDOFF.md` về schema vật lý, công thức,
+reset/step/render. Observation/action và reward không đổi; render_mode=None|"ansi".
+Giá trị vật lý/weather vẫn chưa chốt nên `check_env` tích hợp còn bị skip.
+
+Trưởng và Minh phải thống nhất trước khi thay đổi API, ý nghĩa dữ liệu hoặc cấu hình.
+Python sử dụng **3.13** theo quyết định của người dùng, thay cho 3.12 trong Prompt.md.
+Đây là bootstrap, chưa có mô hình nông học hay thuật toán hoàn chỉnh.
+
+## Trạng thái triển khai
+
+- `agriwater/config.py`: `load_config(name)` đã triển khai và có test.
+- `agriwater/agents/reward.py`: sáu thành phần reward đã triển khai và có test biên.
+- `agriwater/environment/demo.py`: vòng lặp demo, CLI và CSV đã triển khai; unit test
+  dùng environment giả, chờ chạy thật sau khi merge environment.
+- `agriwater/environment/agriwater_env.py` và `weather.py`: đã merge vào
+  `feature/reward-demo`; xem `docs/TRUONG_HANDOFF.md`. `main` có thể chậm hơn nhánh này.
+- Các khóa vật lý và phân phối weather trong YAML vẫn `null`. Bảng "Đề xuất v0.1"
+  bên dưới là đề xuất để chạy thử, **chưa phải cấu hình đã chốt**; không coi `null` là 0.
+- Tại thời điểm cập nhật, nhánh `feature/reward-demo` có 154 passed, 1 skipped;
+  skip duy nhất là `check_env` tích hợp vì YAML vật lý còn `null`. Luôn chạy lại
+  trên nhánh đang làm.
 
 ## Observation và action
 
@@ -72,7 +93,86 @@ Thứ tự: giữ state cũ → tưới → weather ngày hiện tại → cân 
 
 ## Cấu hình và giới hạn
 
-load_config chỉ nhận environment/scenarios/training, dùng safe_load theo gốc repo và kiểm tra mapping. Consumer kiểm tra miền. environment.yaml/scenarios.yaml hiện có giá trị demo, ghi rõ chưa hiệu chuẩn. Xem bảng thông số trong BAO_CAO_MOI_TRUONG; YAML là nguồn giá trị thực thi duy nhất.
+Đề xuất v0.1 (chưa chốt): mốc `growth_stage_days = [8, 16, 24]` tính từ ngày reset.
+`next_stage = min(3, initial_stage + số mốc đã đạt)`.
+
+- `terminated=True` khi `moisture <= biological_termination[0]` hoặc
+  `moisture >= biological_termination[1]`. Đề xuất `[0.10, 0.95]`.
+- `truncated=True` khi `day >= max_days`.
+- Stress (`< 0,20` hoặc `> 0,85`) chỉ là tiêu chí reward, không phải chết cây.
+- Nếu cả hai cờ cùng đúng, ưu tiên `terminated=True`.
+- Đây là giả định mô phỏng, chưa hiệu chuẩn; ngưỡng chết phải tách khỏi ngưỡng stress.
+
+## Agent và cấu hình
+
+`BaseAgent` là ABC với `select_action(state, training=False) -> int`.
+Baseline không bắt buộc `learn/save/load`. Q-Learning và DQN chưa có thuật toán;
+Minh phải thống nhất API học chung trước khi viết train, không đọc private fields.
+Evaluation chỉ gọi `select_action` với `training=False`.
+
+Đề xuất baseline v0.1 (chưa triển khai): `soil_moisture < 0.30 → action 4 (20 lít)`,
+ngược lại `action 0`. Đây là luật cố định, không học.
+
+Đề xuất rời rạc hóa Q-table cho giai đoạn sau (chưa triển khai): 4 × 4 × 5 × 3 × 2 × 3 × 3
+= 4.320 trạng thái, với các biên:
+
+```text
+crop_type: 4 giá trị
+growth_stage: 4 giá trị
+soil_moisture: 5 khoảng, biên [0, .2, .4, .6, .8, 1.0]
+temperature: 3 khoảng, biên [15, 25, 35, 45]
+rain_probability: 2 khoảng, biên [0, .5, 1.0]
+rain_forecast_mm: 3 khoảng, biên [0, 15, 30, 50]
+last_irrigation: 3 khoảng, biên [0, 5, 15, 25]
+```
+
+Dùng `np.digitize` và clip index. Con số 864 trong báo cáo là ví dụ cũ, không dùng
+cho cấu hình hiện tại.
+
+### File cấu hình
+
+- `environment.yaml`: `max_days`, `default_scenario`, `action_liters`, `moisture`,
+  `reward`, `water_balance`, `growth_stage_days`, `biological_termination`,
+  `initial_state`.
+- `scenarios.yaml`: `dry`, `stormy`, `random`, mỗi kịch bản có
+  `temperature_range_c`, `rain_probability_range`, `rain_amount_range_mm`.
+- `training.yaml`: `seed`, `q_learning`, `dqn`; đây là đề xuất khởi đầu, chưa tối ưu.
+
+`load_config(name)` chỉ nhận `environment`, `scenarios`, `training`; đọc
+`configs/<name>.yaml` theo gốc repo, dùng `yaml.safe_load`, bắt buộc top-level
+mapping và giữ nguyên `null`. Mỗi consumer tự kiểm tra phần mình cần: reward kiểm
+tra `reward`/`moisture`; environment kiểm tra vật lý; weather kiểm tra phân phối.
+Không tạo loader thứ hai.
+
+## Đề xuất v0.1 (chưa chốt)
+
+Bảng dưới đây đồng bộ với schema environment hiện tại, dùng để chạy thử và
+viết test tích hợp. **Không đưa vào YAML production khi chưa có xác nhận của cả hai.**
+Không khẳng định đây là số liệu nông học hay FAO-56.
+
+| Tham số | Đề xuất |
+|---|---|
+| `max_days` | 30 |
+| `plot_area_m2` | 1.0 |
+| `soil_capacity_liters` | 50.0 (độ ẩm 1.0 = 50 L/m²) |
+| `irrigation_efficiency` | 0.8 |
+| `rain_efficiency` | 1.0 |
+| `evapotranspiration_liters_per_day` | 0.0 |
+| `et_temperature_slope` | 0.25 L/ngày/°C trên 15 °C |
+| `crop_factors` | `[1.0, 1.0, 1.0, 1.0]` |
+| `stage_factors` | `[0.60, 0.90, 1.15, 0.80]` |
+| `drainage_threshold` | 0.85 |
+| `drainage_liters_per_day` | 5.0 |
+| `repeat_irrigation_threshold_liters` | 12.5 |
+| `repeat_irrigation_efficiency` | 0.8 |
+| `growth_stage_days` | `[8, 16, 24]` |
+| `biological_termination` | `[0.10, 0.95]` |
+| `initial_state.crop_type` | 0 |
+| `initial_state.growth_stage` | 0 |
+| `initial_state.soil_moisture_range` | `[0.35, 0.55]` |
+| Dry | T ~ U(35, 42), p ~ U(0, 0.05), forecast ~ U(0, 5) mm |
+| Stormy | T ~ U(22, 30), p ~ U(0.3, 0.9), forecast ~ U(5, 40) mm |
+| Random | T ~ U(18, 38), p ~ U(0, 1), forecast ~ U(0, 40) mm |
 
 Mặc định capacity=100 L, diện tích=1 m², trạng thái đầu crop/stage=0 và moisture uniform [0,40;0,70], mốc stage=[8,16,24], ngưỡng chết=[0,05;0,95]. Không coi đây là hệ số đã được thầy xác nhận hoặc chuẩn FAO-56.
 

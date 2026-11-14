@@ -11,11 +11,12 @@ huấn luyện, loss, hội tụ hay so sánh thuật toán; các phần đó đ
 ## Trạng thái
 
 - `config.py`, `reward.py`, `demo.py` đã triển khai trên `feature/reward-demo`.
-- `agriwater_env.py`, `weather.py` đã triển khai trên `feature/environment` nhưng
-  chưa merge.
+- `agriwater_env.py`, `weather.py` đã merge vào `feature/reward-demo` qua PR #1.
 - Các giá trị vật lý/weather trong YAML còn `null`. Không chạy nghiệm thu thật khi
   còn `null` bắt buộc; không điền 0 để tạo kết quả.
-- Unit test demo dùng environment giả. Phải chạy lại với environment thật sau merge.
+- Unit test demo dùng environment giả. Phải chạy lại với environment thật sau khi
+  chốt YAML.
+- Toàn suite hiện 154 passed, 1 skipped (`check_env`).
 
 ## Lệnh kiểm tra
 
@@ -40,7 +41,8 @@ failed và test nào còn bị skip.
 
 ## Điều kiện trước khi chạy thật
 
-1. `feature/environment` đã merge và `check_env(AgriWaterEnv(), skip_render_check=True)`
+1. Environment đã merge vào `feature/reward-demo`; bật
+   `check_env(AgriWaterEnv(), skip_render_check=True)`
    pass với loader/reward thật, không mock.
 2. Không còn `null` ở các khóa bắt buộc trong `environment.yaml`/`scenarios.yaml`.
 3. Hai người đã chốt giá trị v0.1 và ghi vào `DESIGN_CONTRACT.md`/PR.

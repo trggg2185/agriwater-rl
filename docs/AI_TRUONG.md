@@ -5,10 +5,10 @@ feature/environment, xuất phát cùng phiên bản bộ khung với Minh.
 
 ## Trạng thái
 
-Bản triển khai environment/weather nằm ở nhánh `feature/environment`, kèm
-`docs/TRUONG_HANDOFF.md` trên chính nhánh đó. Loader/reward/demo của Minh đã có
-trên `feature/reward-demo`. Còn review/merge hai nhánh và chốt các giá trị YAML;
-các bước dưới giữ nguyên làm hướng dẫn triển khai và kiểm thử.
+Bản triển khai environment/weather đã merge vào `feature/reward-demo` qua PR #1,
+kèm `docs/TRUONG_HANDOFF.md`. Loader/reward/demo của Minh đã có trên cùng nhánh.
+Còn chốt các giá trị YAML rồi bỏ skip `check_env`; các bước dưới giữ nguyên làm
+hướng dẫn triển khai và kiểm thử.
 
 ## Phạm vi sở hữu
 

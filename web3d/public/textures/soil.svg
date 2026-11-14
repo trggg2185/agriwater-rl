@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="140" viewBox="0 0 180 140">
+  <defs>
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" seed="11" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0"/>
+    </filter>
+    <linearGradient id="dirt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4a3527"/>
+      <stop offset="0.55" stop-color="#3b2a1f"/>
+      <stop offset="1" stop-color="#2c1f17"/>
+    </linearGradient>
+  </defs>
+  <rect width="180" height="140" fill="url(#dirt)"/>
+  <rect width="180" height="140" filter="url(#grain)" opacity="0.4"/>
+  <rect width="180" height="140" fill="#6b5646" opacity="0.16"/>
+  <circle cx="30" cy="26" r="2.6" fill="#6b5646" opacity="0.35"/>
+  <circle cx="96" cy="18" r="1.8" fill="#2c1f17" opacity="0.5"/>
+  <circle cx="150" cy="42" r="3" fill="#6b5646" opacity="0.3"/>
+  <circle cx="62" cy="86" r="2.2" fill="#2c1f17" opacity="0.45"/>
+  <circle cx="124" cy="104" r="2.8" fill="#6b5646" opacity="0.28"/>
+  <circle cx="18" cy="118" r="1.9" fill="#2c1f17" opacity="0.4"/>
+</svg>

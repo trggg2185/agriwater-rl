@@ -28,23 +28,24 @@ Nếu tài liệu mâu thuẫn, báo rõ mâu thuẫn; không tự sửa hợp �
 
 ## 2. Trạng thái bàn giao thực tế
 
-**Cập nhật:** Trưởng đã triển khai environment/weather; đọc TRUONG_HANDOFF.md trước
-bảng bootstrap bên dưới. Unit tests hiện 28 passed, 2 skipped; tích hợp thật chờ
-Minh viết loader/reward và hai người chốt giá trị YAML. Không viết lại phần Trưởng.
+**Cập nhật:** environment/weather đã merge vào `feature/reward-demo` qua PR #1; đọc
+`TRUONG_HANDOFF.md` trước bảng bên dưới. Unit tests hiện 154 passed, 1 skipped;
+skip duy nhất là `check_env` tích hợp vì YAML vật lý còn `null`. Không viết lại
+phần Trưởng.
 
 | Thành phần | Có gì | Còn thiếu |
 |---|---|---|
-| AgriWaterEnv | Constructor, spaces trên `main`; bản đầy đủ ở `feature/environment` | Merge và chốt YAML vật lý |
-| weather.py | Chữ ký trên `main`; bản đầy đủ ở `feature/environment` | Merge và chốt phân phối |
-| reward.py | Sáu thành phần, validation, test biên trên `feature/reward-demo` | Chạy tích hợp với environment thật |
-| config.py | `load_config` cho 3 tên, giữ `null`, test lỗi trên `feature/reward-demo` | Không còn |
-| demo.py | `run_episode`, CLI, CSV, `--force` trên `feature/reward-demo` | Chạy ba scenario với environment thật |
-| tests | 135 passed, 1 skipped trên `feature/reward-demo`; 28 passed, 2 skipped trên `feature/environment` | Bỏ skip `check_env` sau merge |
+| AgriWaterEnv | `reset`/`step`/`render`, cân bằng nước, đã merge | Chốt YAML vật lý |
+| weather.py | Ba kịch bản, RNG riêng, đã merge | Chốt phân phối weather |
+| reward.py | Sáu thành phần, validation, test biên | Chạy tích hợp với environment thật |
+| config.py | `load_config` cho 3 tên, giữ `null`, test lỗi | Không còn |
+| demo.py | `run_episode`, CLI, CSV, `--force` | Chạy ba scenario thật |
+| tests | 154 passed, 1 skipped | Bỏ skip `check_env` sau khi chốt YAML |
 | agents/train/evaluation | Interface cho giai đoạn sau | Không triển khai tuần này |
 
 Kết quả kiểm tra thay đổi theo nhánh; hãy chạy lại trên nhánh của bạn. Một skip
 `check_env` và các test tích hợp chưa chạy không chứng minh môi trường hoàn tất.
-`docs/TRUONG_HANDOFF.md` chỉ có trên nhánh `feature/environment`.
+`docs/TRUONG_HANDOFF.md` đã có trên `feature/reward-demo`.
 Hệ số vật lý và phân phối weather trong YAML còn `null`, không được mặc định thành 0.
 Bảng giá trị v0.1 trong DESIGN_CONTRACT là đề xuất, chưa phải cấu hình đã chốt.
 

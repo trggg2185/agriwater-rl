@@ -18,6 +18,8 @@ dist/
 *.npz
 models/*
 !models/.gitkeep
+web3d/node_modules/
+web3d/dist/
 results/*
 !results/.gitkeep
 logs/*

@@ -1,0 +1,221 @@
+/* Bề mặt kính mờ dùng chung: nav, dock, nút camera, thẻ nổi. */
+
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: var(--glass-border);
+}
+
+/* ---------- Thanh điều hướng ---------- */
+
+.nav {
+  position: absolute;
+  left: 18.6%;
+  top: 4%;
+  width: 30.5%;
+  height: 5%;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: var(--glass-border);
+}
+
+.nav__indicator {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 0;
+  width: 0;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.2);
+  transition:
+    transform 280ms var(--ease),
+    width 280ms var(--ease);
+  pointer-events: none;
+}
+
+.nav__item {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 0;
+  height: calc(100% - 10px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--dur) var(--ease);
+}
+
+.nav__label {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.92);
+  transition: color var(--dur) var(--ease);
+}
+
+.nav__item.is-active .nav__label {
+  color: var(--panel-title);
+  font-weight: 600;
+}
+
+.nav__item .icon {
+  width: 13px;
+  height: 13px;
+  color: #fff;
+  transition: color var(--dur) var(--ease);
+}
+
+.nav__item.is-active .icon {
+  color: var(--accent-green);
+}
+
+/* ---------- Thẻ thời tiết ---------- */
+
+.weather {
+  position: absolute;
+  left: 1%;
+  top: 83%;
+  width: 19%;
+  min-width: 252px;
+  min-height: 9%;
+  padding: 13px 15px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--weather-a), var(--weather-b));
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.32);
+  color: #fff;
+  transition: transform var(--dur) var(--ease);
+}
+
+.weather:hover {
+  transform: translateY(-2px);
+}
+
+.weather__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.weather__temp {
+  font-size: var(--fs-value-lg);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.weather__unit {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 3px;
+  opacity: 0.95;
+}
+
+.weather__cond {
+  font-size: var(--fs-label);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.weather__sub {
+  font-size: var(--fs-mini);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.82);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+.weather__chev {
+  position: absolute;
+  top: 7px;
+  right: 9px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+.weather__chev .icon {
+  width: 11px;
+  height: 11px;
+  transition: transform var(--dur) var(--ease);
+}
+
+.weather.is-open .weather__chev .icon {
+  transform: rotate(180deg);
+}
+
+.weather__extra {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 8px);
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(24, 34, 46, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: var(--glass-border);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  display: grid;
+  gap: 6px;
+}
+
+.weather__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: var(--fs-mini);
+}
+
+.weather__row span:first-child {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.weather__row span:last-child {
+  font-weight: 600;
+}
+
+@media (max-width: 1365px) {
+  .weather {
+    min-width: 220px;
+    padding: 11px 13px;
+  }
+
+  .nav {
+    left: 20%;
+    width: 32%;
+  }
+
+  .nav__label {
+    font-size: 11px;
+  }
+
+  .brand__name {
+    font-size: 12px;
+  }
+
+  .brand__sub {
+    font-size: 10px;
+  }
+}
