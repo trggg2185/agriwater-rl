@@ -149,7 +149,7 @@ export function createHistoryLog(store) {
 
     paintLive(state);
 
-    const key = `${day}|${state.activeTab}|${state.scenario}|${state.seed}|${series.length}`;
+    const key = `${day}|${state.activeTab}|${state.scenario}|${state.seed}|${state.agentA}|${state.mode}|${series.length}`;
     if (key === lastKey) return;
     lastKey = key;
 

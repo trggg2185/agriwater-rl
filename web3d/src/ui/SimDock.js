@@ -62,7 +62,35 @@ export function SimDock(store, actions) {
     store.setState({ previewAction: value === 'auto' ? null : Number(value) });
   });
 
-  const pill = el('div', { class: 'dock__pill' }, [playButton, speedGroup, waterSelect, moreButton]);
+  function populateAgentSelect(select, agents) {
+    select.replaceChildren();
+    for (const agent of agents) {
+      const option = el(
+        'option',
+        { value: agent.key },
+        agent.available ? agent.label : `${agent.label} — chưa có`,
+      );
+      if (!agent.available) option.disabled = true;
+      select.append(option);
+    }
+  }
+
+  // Bộ chọn thuật toán hiển thị ngay trên thanh dock chính để chọn DQN chỉ với 1 bấm.
+  const quickAgentSelect = el('select', {
+    class: 'dock__select',
+    'aria-label': 'Chọn thuật toán điều khiển',
+  });
+  quickAgentSelect.addEventListener('change', () => {
+    actions.regenerate({ agentA: quickAgentSelect.value }, { keepDay: false });
+  });
+
+  const pill = el('div', { class: 'dock__pill' }, [
+    playButton,
+    speedGroup,
+    quickAgentSelect,
+    waterSelect,
+    moreButton,
+  ]);
 
   const resetButton = el(
     'button',
@@ -94,34 +122,20 @@ export function SimDock(store, actions) {
   });
 
   const modeSelect = el('select', { class: 'dock__select', 'aria-label': 'Chế độ dữ liệu' }, [
-    el('option', { value: 'replay' }, 'Replay (CSV)'),
-    el('option', { value: 'live' }, 'Live (backend)'),
+    el('option', { value: 'replay' }, 'Replay (dữ liệu sẵn)'),
+    el('option', { value: 'live' }, 'Live (backend DQN)'),
   ]);
   modeSelect.addEventListener('change', () => {
-    store.setState({ mode: modeSelect.value });
-    if (modeSelect.value === 'live') {
-      actions.notify('Live cần backend FastAPI (giai đoạn 3). Đang dùng dữ liệu mock.');
-    }
+    actions.regenerate({ mode: modeSelect.value }, { keepDay: false });
   });
 
-  function agentSelect(label) {
-    const select = el('select', { class: 'dock__select', 'aria-label': label });
-    for (const agent of store.getState().meta.agents) {
-      const option = el(
-        'option',
-        { value: agent.key },
-        agent.available ? agent.label : `${agent.label} — chưa có`,
-      );
-      if (!agent.available) option.disabled = true;
-      select.append(option);
-    }
-    return select;
-  }
-
-  const agentA = agentSelect('Agent A');
-  agentA.addEventListener('change', () => store.setState({ agentA: agentA.value }));
-  const agentB = agentSelect('Agent B');
+  const agentA = el('select', { class: 'dock__select', 'aria-label': 'Agent A' });
+  agentA.addEventListener('change', () => {
+    actions.regenerate({ agentA: agentA.value }, { keepDay: false });
+  });
+  const agentB = el('select', { class: 'dock__select', 'aria-label': 'Agent B' });
   agentB.addEventListener('change', () => store.setState({ agentB: agentB.value }));
+  let agentsSignature = '';
 
   const heatmapChip = el(
     'button',
@@ -162,8 +176,18 @@ export function SimDock(store, actions) {
     waterSelect.value =
       state.previewAction == null ? 'auto' : String(state.previewAction);
 
+    const agents = state.meta?.agents ?? [];
+    const nextSig = agents.map((a) => `${a.key}:${a.available}:${a.label}`).join('|');
+    if (nextSig !== agentsSignature) {
+      agentsSignature = nextSig;
+      populateAgentSelect(quickAgentSelect, agents);
+      populateAgentSelect(agentA, agents);
+      populateAgentSelect(agentB, agents);
+    }
+
     scenarioSelect.value = state.scenario;
     modeSelect.value = state.mode;
+    quickAgentSelect.value = state.agentA;
     agentA.value = state.agentA;
     agentB.value = state.agentB;
     heatmapChip.classList.toggle('is-active', Boolean(state.heatmap));
