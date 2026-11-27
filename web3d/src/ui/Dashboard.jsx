@@ -1,4 +1,4 @@
-import React, { useState, useSyncExternalStore } from 'react';
+import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
 import { ChartNoAxesCombined, FlaskConical, GitCompare, GraduationCap, Leaf, Settings2 } from 'lucide-react';
 import { UI } from '../config.js';
 import { Compare, Environment, Experiment, Report, Training } from './ResearchWorkspace.jsx';
@@ -21,17 +21,24 @@ export function Dashboard({ store, actions }) {
   const { view } = state;
   const [profile, setProfile] = useState(() => readSaved('agriwater.environment.v1', null));
   const [runs, setRuns] = useState(() => readSaved('agriwater.results.v1', []));
+  const runsRef = useRef(runs);
 
   function saveProfile(next) {
     localStorage.setItem('agriwater.environment.v1', JSON.stringify(next));
     setProfile(next);
   }
 
-  function addRun(run) {
-    const next = [...runs, run];
-    localStorage.setItem('agriwater.results.v1', JSON.stringify(next));
+  const addRun = useCallback((run) => {
+    if (runsRef.current.some(({ id }) => id === run.id)) return;
+    const next = [...runsRef.current, run];
+    try {
+      localStorage.setItem('agriwater.results.v1', JSON.stringify(next));
+    } catch {
+      store.setState({ storageWarning: 'Bộ nhớ trình duyệt đã đầy. Hãy xuất kết quả trước khi đóng trang.' });
+    }
+    runsRef.current = next;
     setRuns(next);
-  }
+  }, [store]);
   return (
     <>
       <header className="app-header">
@@ -54,6 +61,7 @@ export function Dashboard({ store, actions }) {
         </nav>
       </header>
       <main className="workspace">
+        {state.storageWarning && <p className="study-status" role="status">{state.storageWarning}</p>}
         <div className="workspace-heading" hidden={view !== 'monitor'} />
         <div className="workspace-grid grid items-start" hidden={view !== 'monitor'}>
           <section className="field overflow-hidden" aria-labelledby="field-title">
@@ -73,7 +81,9 @@ export function Dashboard({ store, actions }) {
           <div className="workspace-data min-w-0" />
         </div>
         {view === 'environment' && <Environment profile={profile} save={saveProfile} state={state} apply={actions.applyProfile} />}
-        {view === 'training' && <Training profile={profile} addRun={addRun} />}
+        <div hidden={view !== 'training'}>
+          <Training profile={profile} state={state} addRun={addRun} refreshPolicies={actions.refreshPolicies} />
+        </div>
         {view === 'experiment' && <Experiment profile={profile} state={state} addRun={addRun} />}
         {view === 'compare' && <Compare runs={runs.filter((run) => run.kind !== 'training')} addRun={addRun} />}
         {view === 'monitor' && <Report runs={runs} state={state} />}

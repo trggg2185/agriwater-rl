@@ -1,4 +1,5 @@
 import { SCENE } from '../config.js';
+import { STRATEGIES } from '../data/research.js';
 import { fieldIrrigationStatus } from '../utils/irrigationZones.js';
 import { weatherCondition } from '../utils/colors.js';
 import { el, icon } from '../utils/dom.js';
@@ -151,8 +152,8 @@ export function FieldHud(store, actions) {
     type: 'button',
     role: 'switch',
     'aria-checked': 'false',
-    'aria-label': 'Baseline tự động',
-  }, [el('span', {}, 'Baseline tự động'), el('span', { class: 'field-auto__row' }, [
+    'aria-label': 'Tưới tự động',
+  }, [el('span', {}, 'Tưới tự động'), el('span', { class: 'field-auto__row' }, [
     playing, el('span', { class: 'field-auto__track', 'aria-hidden': 'true' }),
   ])]);
   auto.addEventListener('click', () => store.setState((state) => ({ autoIrrigation: !state.autoIrrigation })));
@@ -190,11 +191,11 @@ export function FieldHud(store, actions) {
     reward.textContent = `${record.reward > 0 ? '+' : ''}${formatNumber(record.reward, 1)}`;
     water.textContent = `a${record.action} · ${formatNumber(record.waterLiters, 0)} L`;
     policy.textContent = state.dataSource === 'api'
-      ? state.autoIrrigation ? 'Baseline (bước tiếp)' : 'Thủ công (bước tiếp)'
+      ? state.autoIrrigation ? `${STRATEGIES[state.policy] ?? 'Baseline'} (bước tiếp)` : 'Thủ công (bước tiếp)'
       : (POLICY_LABELS[state.source?.policy] ?? 'Demo').replace(' (Python)', '');
     auto.disabled = state.dataSource !== 'api' || state.simulationBusy;
     auto.title = auto.disabled ? 'Chế độ phát lại hiển thị hành động đã ghi trong dữ liệu' : '';
-    const enabled = auto.disabled ? state.source?.policy === 'baseline' : state.autoIrrigation;
+    const enabled = auto.disabled ? Object.hasOwn(STRATEGIES, state.source?.policy) : state.autoIrrigation;
     playing.textContent = enabled ? 'Bật' : 'Tắt';
     auto.setAttribute('aria-checked', String(Boolean(enabled)));
   });

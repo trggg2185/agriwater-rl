@@ -20,7 +20,7 @@ Ghi chú thiết kế:
 * Ván sống trong bộ nhớ tiến trình. Khởi động lại server là mất ván — đúng ý
   đồ: đây là môi trường mô phỏng, không phải cơ sở dữ liệu.
 * Mỗi session có khóa riêng: hai tab cùng bấm tưới không chen vào một env.
-* Không endpoint nào ghi file, không sửa `configs/`, không sửa `agriwater/`.
+* Huấn luyện lưu checkpoint trong models/. Dữ liệu chạy thử sử dụng bộ nhớ.
 """
 
 from __future__ import annotations
@@ -35,7 +35,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from agriwater.agents.base_agent import BaseAgent
 from agriwater.api import runtime
+from agriwater.api.training import router as training_router
 from agriwater.environment.agriwater_env import AgriWaterEnv
 from agriwater.environment.weather import WeatherDay
 
@@ -46,7 +48,8 @@ DEV_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
-app = FastAPI(title="AgriWater-RL API", version="0.1.0")
+app = FastAPI(title="AgriWater-RL API", version="0.2.0")
+app.include_router(training_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=DEV_ORIGINS,
@@ -58,8 +61,8 @@ app.add_middleware(
 WeatherMode = Literal["sun", "rain", "storm", "random"]
 WEATHER_PRESETS: dict[str, WeatherDay] = {
     "sun": dict(temperature=36, rain_probability=0, rain_forecast_mm=0, actual_rain_mm=0),
-    "rain": dict(temperature=28, rain_probability=.65, rain_forecast_mm=4, actual_rain_mm=3),
-    "storm": dict(temperature=25, rain_probability=.95, rain_forecast_mm=25, actual_rain_mm=22),
+    "rain": dict(temperature=28, rain_probability=0.65, rain_forecast_mm=4, actual_rain_mm=3),
+    "storm": dict(temperature=25, rain_probability=0.95, rain_forecast_mm=25, actual_rain_mm=22),
 }
 
 
@@ -75,7 +78,8 @@ class Session:
     crop: int
     #: Observation hiện tại (trước bước kế tiếp) — cần để dựng bản ghi ngày.
     obs: np.ndarray
-    policy: str = "manual"
+    policy: str
+    agent: BaseAgent
     series: list[dict[str, Any]] = field(default_factory=list)
     done: bool = False
     weather_mode: WeatherMode | None = None
@@ -107,7 +111,7 @@ class SessionRequest(BaseModel):
     scenario: Literal["dry", "stormy", "random"] = "dry"
     seed: int = Field(default=42, ge=0, le=2**32 - 1)
     crop: int = Field(default=0, ge=0, le=3)
-    policy: Literal["baseline", "q_learning"] = "baseline"
+    policy: Literal["baseline", "q_learning", "dqn"] = "baseline"
     #: Ngày đầu tiên trôi qua ngay khi mở ván, để giao diện luôn có dữ liệu để vẽ.
     initial_action: int | None = Field(default=None, ge=0, le=5)
     start_day: int = Field(default=1, ge=1)
@@ -204,30 +208,30 @@ def meta() -> dict[str, Any]:
         config, config_source = runtime.resolve_config()
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    policies = runtime.policy_statuses()
     return {
         "schema": runtime.SCHEMA,
         "meta": runtime.build_meta(config),
         "source": {"kind": "api", "config": config_source},
         "scenarios": [{"key": key} for key in runtime.SCENARIOS],
-        "availablePolicies": runtime.available_policies(),
+        "availablePolicies": [policy["key"] for policy in policies if policy["available"]],
+        "policies": policies,
     }
 
 
-@app.post("/api/session")
-def create_session(payload: SessionRequest) -> dict[str, Any]:
-    """Mở ván mới và mô phỏng tuần tự đến ngày yêu cầu hoặc khi vụ kết thúc."""
+def _open_session(payload: SessionRequest, *, full_cycle: bool = False) -> Session:
     try:
         config, config_source = runtime.resolve_config()
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    if payload.policy == "q_learning" and runtime.get_q_agent() is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Chưa có mô hình Q-Learning (models/q_table.npz). Hãy huấn luyện trước.",
-        )
+    try:
+        agent = runtime.session_agent(payload.policy, payload.seed)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    if payload.start_day > int(config["max_days"]):
+    start_day = int(config["max_days"]) if full_cycle else payload.start_day
+    if start_day > int(config["max_days"]):
         raise HTTPException(status_code=422, detail="Ngày bắt đầu vượt quá chu kỳ mô phỏng")
     try:
         env, obs = runtime.open_environment(
@@ -235,8 +239,12 @@ def create_session(payload: SessionRequest) -> dict[str, Any]:
             seed=payload.seed,
             crop=payload.crop,
             config=config,
-            initial=payload.initial_state.model_dump(exclude_none=True) if payload.initial_state else None,
-            weather=[day.model_dump() for day in payload.weather] if payload.weather is not None else None,
+            initial=payload.initial_state.model_dump(exclude_none=True)
+            if payload.initial_state
+            else None,
+            weather=[day.model_dump() for day in payload.weather]
+            if payload.weather is not None
+            else None,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -250,23 +258,43 @@ def create_session(payload: SessionRequest) -> dict[str, Any]:
         crop=payload.crop,
         obs=obs,
         policy=payload.policy,
+        agent=agent,
     )
-    if payload.initial_action is not None:
-        action = payload.initial_action
-    else:
-        action = (
-            runtime.select_policy_action(session.policy, session.obs)
-            if payload.start_day > 1
-            else 0
-        )
-    _step(session, action)
-    while len(session.series) < payload.start_day and not session.done:
-        _step(session, runtime.select_policy_action(session.policy, session.obs))
+    try:
+        if not full_cycle and payload.initial_action is not None:
+            action = payload.initial_action
+        elif full_cycle or start_day > 1 or payload.policy != "baseline":
+            action = agent.select_action(session.obs, training=False)
+        else:
+            action = 0
+        _step(session, action)
+        while len(session.series) < start_day and not session.done:
+            _step(session, agent.select_action(session.obs, training=False))
+    except Exception:
+        env.close()
+        raise
 
+    return session
+
+
+@app.post("/api/session")
+def create_session(payload: SessionRequest) -> dict[str, Any]:
+    """Mở ván mới và chạy đến ngày yêu cầu hoặc khi vụ kết thúc."""
+    session = _open_session(payload)
     session_id = uuid.uuid4().hex
     with _SESSIONS_LOCK:
         _SESSIONS[session_id] = session
     return {"session_id": session_id, **_payload(session)}
+
+
+@app.post("/api/experiment")
+def experiment(payload: SessionRequest) -> dict[str, Any]:
+    """Chạy trọn vụ bằng một thuật toán và không giữ lại phiên tương tác."""
+    session = _open_session(payload, full_cycle=True)
+    try:
+        return _payload(session)
+    finally:
+        session.env.close()
 
 
 @app.post("/api/step")
@@ -276,7 +304,7 @@ def step(payload: StepRequest) -> dict[str, Any]:
     with session.lock:
         try:
             action = (
-                runtime.select_policy_action(session.policy, session.obs)
+                session.agent.select_action(session.obs, training=False)
                 if payload.automatic
                 else payload.action
             )
@@ -287,14 +315,15 @@ def step(payload: StepRequest) -> dict[str, Any]:
     return {"session_id": payload.session_id, **body}
 
 
-
 @app.post("/api/weather")
 def change_weather(payload: WeatherRequest) -> dict[str, Any]:
     """Đổi thời tiết từ bước kế tiếp, giữ nguyên các bước đã ghi."""
     session = _lookup(payload.session_id)
     with session.lock:
         if session.done or payload.day != session.env.day + 1:
-            raise HTTPException(status_code=409, detail="Ngày cần đổi thời tiết đã qua hoặc vụ đã kết thúc")
+            raise HTTPException(
+                status_code=409, detail="Ngày cần đổi thời tiết đã qua hoặc vụ đã kết thúc"
+            )
         count = session.env.max_days - session.env.day + 1
         weather = (
             runtime.resolve_weather("random", count, session.seed + payload.day)

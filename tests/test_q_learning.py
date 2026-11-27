@@ -24,7 +24,9 @@ def test_discretizer_shape_and_total_states() -> None:
 
 def test_discretizer_clips_out_of_bounds_values() -> None:
     disc = StateDiscretizer()
-    low_idx = disc.discretize(np.array([-5.0, -1.0, -0.5, -2.0, -0.1, -10.0, -0.2], dtype=np.float32))
+    low_idx = disc.discretize(
+        np.array([-5.0, -1.0, -0.5, -2.0, -0.1, -10.0, -0.2], dtype=np.float32)
+    )
     high_idx = disc.discretize(np.array([5.0, 2.0, 1.5, 3.0, 1.8, 9.0, 4.0], dtype=np.float32))
 
     assert low_idx == (0, 0, 0, 0, 0, 0, 0)
@@ -83,13 +85,17 @@ def test_update_distinguishes_terminated_and_truncated() -> None:
     # Case 1: terminated=True -> no bootstrapping
     agent_term = QLearningAgent(alpha=0.5, gamma=0.9, seed=0)
     agent_term.q_table[agent_term.discretizer.discretize(s_next)][2] = 100.0
-    agent_term.update(s, action=1, reward=-100.0, next_state=s_next, terminated=True, truncated=False)
+    agent_term.update(
+        s, action=1, reward=-100.0, next_state=s_next, terminated=True, truncated=False
+    )
     assert agent_term.q_table[agent_term.discretizer.discretize(s)][1] == pytest.approx(-50.0)
 
     # Case 2: truncated=True, terminated=False -> must bootstrap gamma * max Q(s', a')
     agent_trunc = QLearningAgent(alpha=0.5, gamma=0.9, seed=0)
     agent_trunc.q_table[agent_trunc.discretizer.discretize(s_next)][2] = 100.0
-    agent_trunc.update(s, action=1, reward=10.0, next_state=s_next, terminated=False, truncated=True)
+    agent_trunc.update(
+        s, action=1, reward=10.0, next_state=s_next, terminated=False, truncated=True
+    )
     # target = 10 + 0.9 * 100 = 100 -> Q = 0 + 0.5 * 100 = 50
     assert agent_trunc.q_table[agent_trunc.discretizer.discretize(s)][1] == pytest.approx(50.0)
 
@@ -116,7 +122,9 @@ def test_save_and_load_roundtrip(tmp_path: Path) -> None:
     assert loaded.select_action(s, training=False) == 4
 
 
-def test_train_eval_and_api_q_learning_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_train_eval_and_api_q_learning_smoke(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     model_path = tmp_path / "q_table.npz"
     log_path = tmp_path / "train_log.csv"
     plot_path = tmp_path / "curve.png"

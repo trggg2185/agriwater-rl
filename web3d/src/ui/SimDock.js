@@ -98,13 +98,12 @@ export function SimDock(store, actions) {
     actions.selectIrrigation(value === 'auto' ? null : Number(value));
   });
 
+  let policies;
   const policySelect = el('select', {
     class: 'dock__select dock__select--policy',
     'aria-label': 'Chính sách tưới tự động',
-  }, [
-    el('option', { value: 'baseline' }, 'Policy: Baseline'),
-    el('option', { value: 'q_learning' }, 'Policy: Q-Learning (ε=0)'),
-  ]);
+    title: 'Đổi thuật toán sẽ mở vụ mới',
+  });
   policySelect.addEventListener('change', () => {
     void actions.selectPolicy?.(policySelect.value);
   });
@@ -192,6 +191,16 @@ export function SimDock(store, actions) {
     }
     waterSelect.value = state.previewAction == null ? 'auto' : String(state.previewAction);
 
+    if (policies !== state.policies) {
+      policies = state.policies;
+      policySelect.replaceChildren(...(policies.length ? policies : [
+        { key: 'baseline', label: 'Baseline', available: true },
+      ]).map(({ key, label, available }) => {
+        const option = el('option', { value: key }, available ? label : `${label} · chưa sẵn sàng`);
+        option.disabled = !available;
+        return option;
+      }));
+    }
     policySelect.value = state.policy ?? 'baseline';
     policySelect.disabled = state.simulationBusy || !live;
 

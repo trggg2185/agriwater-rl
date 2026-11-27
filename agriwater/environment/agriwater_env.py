@@ -136,7 +136,9 @@ class AgriWaterEnv(gym.Env):
             raise ValueError("moisture must be a mapping")
         for key in ("ideal_default", "ideal_stage_2", "stress_bounds"):
             self._bounds(moisture.get(key), f"moisture.{key}")
-        death_low, death_high = self._bounds(c.get("biological_termination"), "biological_termination")
+        death_low, death_high = self._bounds(
+            c.get("biological_termination"), "biological_termination"
+        )
         stress_low, stress_high = moisture["stress_bounds"]
         if not death_low < stress_low < stress_high < death_high:
             raise ValueError("biological_termination must lie outside stress_bounds")
@@ -210,7 +212,10 @@ class AgriWaterEnv(gym.Env):
             rain_probability=first_weather["rain_probability"],
             rain_forecast_mm=first_weather["rain_forecast_mm"],
             last_irrigation_liters=_number(
-                options.get("last_irrigation_liters", 0), "last_irrigation_liters", 0, IRRIGATION_MAX_LITERS
+                options.get("last_irrigation_liters", 0),
+                "last_irrigation_liters",
+                0,
+                IRRIGATION_MAX_LITERS,
             ),
         )
         self._state_ready = True
@@ -243,7 +248,7 @@ class AgriWaterEnv(gym.Env):
         state[TEMPERATURE] = encode_temperature(first["temperature"])
         state[RAIN_PROBABILITY] = first["rain_probability"]
         state[RAIN_FORECAST_MM] = encode_rain_forecast(first["rain_forecast_mm"])
-        self._weather[self.day:] = deepcopy(weather)
+        self._weather[self.day :] = deepcopy(weather)
         self._state = state
         return state.copy()
 

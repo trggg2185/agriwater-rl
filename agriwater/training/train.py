@@ -2,7 +2,7 @@
 
 import argparse
 import csv
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -12,12 +12,15 @@ import yaml
 
 from agriwater.agents.base_agent import BaseAgent
 from agriwater.agents.dqn import DQNAgent
+from agriwater.agents.q_agent import QLearningAgent
 from agriwater.config import load_config
 from agriwater.environment.agriwater_env import AgriWaterEnv
 from agriwater.environment.demo import _record
 from agriwater.environment.weather import generate_weather
 from agriwater.evaluation.evaluate import evaluate
 from agriwater.evaluation.metrics import calculate_metrics
+from agriwater.training.q_learning import train as train_tabular
+from agriwater.training.q_learning import train_q_learning as train_q_learning
 
 _TRAIN_LOG_COLUMNS = [
     "episode",
@@ -57,7 +60,7 @@ def _write_training_log(rows: list[dict[str, Any]], log_path: Path) -> Path:
     return log_path
 
 
-_MIXED_SCENARIOS = ("dry", "random", "stormy")
+MIXED_SCENARIOS = ("dry", "random", "stormy")
 
 
 def _validate_policy(
@@ -83,6 +86,7 @@ def train(
     config_path: Path | None = None,
     *,
     episodes: int | None = None,
+    total_timesteps: int | None = None,
     seed: int | None = None,
     checkpoint_path: Path | None = None,
     log_path: Path | None = None,
@@ -90,8 +94,11 @@ def train(
     eval_every: int = 50,
     randomize_crop: bool = False,
     scenarios: Sequence[str] | None = None,
-) -> dict[str, Any]:
+    on_episode: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any] | None:
     """Train a learning agent via public API methods without reading private fields."""
+    if isinstance(agent, QLearningAgent):
+        return train_tabular(agent, env, config_path)
     _require_learning_protocol(agent)
     cfg = _load_training_mapping(config_path)
     base_seed = int(cfg.get("seed", 42) if seed is None else seed)
@@ -100,6 +107,9 @@ def train(
         episodes = int(cfg.get("episodes", dqn_section.get("episodes", 1000)))
     if episodes < 1:
         raise ValueError("episodes must be a positive integer")
+    if total_timesteps is not None and total_timesteps < 1:
+        raise ValueError("total_timesteps must be positive")
+    episode_limit = total_timesteps if total_timesteps is not None else episodes
     if eval_episodes < 0 or eval_every < 1:
         raise ValueError("eval_episodes must be >= 0 and eval_every must be >= 1")
 
@@ -133,8 +143,9 @@ def train(
     best_episode = 0
     saved_path: Path | None = None
 
+    timesteps = 0
     try:
-        for episode in range(1, episodes + 1):
+        for episode in range(1, episode_limit + 1):
             ep_seed = base_seed + episode - 1
             active_env = env_by_scenario[scenario_cycle[(episode - 1) % len(scenario_cycle)]]
             options = {"crop_type": int(crop_rng.integers(0, 4))} if randomize_crop else None
@@ -146,6 +157,9 @@ def train(
             while not (terminated or truncated):
                 action = agent.select_action(state, training=True)
                 next_state, reward, terminated, truncated, info = active_env.step(action)
+                timesteps += 1
+                budget_reached = timesteps == total_timesteps
+                truncated |= budget_reached
                 loss = agent.learn(state, action, reward, next_state, terminated, truncated)
                 if loss is not None:
                     losses.append(float(loss))
@@ -170,7 +184,12 @@ def train(
                 }
             )
 
-            should_eval = bool(val_weathers) and (episode % eval_every == 0 or episode == episodes)
+            if on_episode is not None:
+                on_episode(history[-1])
+
+            should_eval = bool(val_weathers) and (
+                episode % eval_every == 0 or episode == episode_limit or budget_reached
+            )
             if should_eval:
                 val_reward = _validate_policy(agent, env.max_days, val_weathers)
                 if val_reward > best_val_reward:
@@ -178,6 +197,8 @@ def train(
                     best_episode = episode
                     if checkpoint_path is not None and callable(getattr(agent, "save", None)):
                         saved_path = agent.save(checkpoint_path)
+            if budget_reached:
+                break
 
         if (
             checkpoint_path is not None
@@ -185,7 +206,7 @@ def train(
             and callable(getattr(agent, "save", None))
         ):
             saved_path = agent.save(checkpoint_path)
-            best_episode = episodes
+            best_episode = len(history)
     finally:
         for extra in extra_envs.values():
             extra.close()
@@ -235,7 +256,7 @@ def main(argv: list[str] | None = None) -> None:
         torch.set_num_threads(1)
 
     agent = DQNAgent(dqn_cfg, seed=seed)
-    scenarios = _MIXED_SCENARIOS if args.scenario == "mixed" else (args.scenario,)
+    scenarios = MIXED_SCENARIOS if args.scenario == "mixed" else (args.scenario,)
     env = AgriWaterEnv(scenario=scenarios[0])
     try:
         result = train(

@@ -14,14 +14,8 @@ Dự án môn Học tăng cường của **Nguyễn Thế Trưởng** và **Nguy
 hỗ trợ quyết định tưới tiêu để tiết kiệm nước và duy trì độ ẩm phù hợp cho cây.
 Đây là **bộ khung khởi tạo**, chưa phải hệ thống tưới tiêu có thể sử dụng thực tế.
 
-**Phạm vi tuần này:** chuẩn bị cấu trúc chung để Trưởng và Minh tự xây dựng môi
-trường thử nghiệm theo mục III–IV của `docs/HocTangCuongN10_HoanChinh.docx`.
-Trưởng triển khai môi trường/thời tiết; Minh triển khai loader cấu hình, reward và
-demo. Các thuật toán baseline, Q-Learning, DQN, huấn luyện và benchmark dành cho
-giai đoạn sau.
-
-Các thành phần dự kiến: môi trường Gymnasium và thời tiết, dashboard Streamlit minh
-họa, Rule-based Baseline, Tabular Q-Learning, DQN, huấn luyện và đánh giá.
+Các thành phần gồm môi trường Gymnasium, FastAPI, dashboard Canvas 2D,
+dashboard minh họa Streamlit, Rule-based Baseline, Tabular Q-Learning và DQN.
 Công nghệ: Python **3.13**, NumPy, Gymnasium, PyTorch (CPU), Pandas, Matplotlib,
 Streamlit, PyYAML, Pytest, Ruff và Git/GitHub. Python 3.13 thay thế yêu cầu 3.12
 trong Prompt.md theo lựa chọn của người dùng; Prompt.md được giữ nguyên.
@@ -38,14 +32,19 @@ chọn mức nước ở ngày mới nhất rồi bấm nút áp dụng ở than
 API dùng cấu hình mô phỏng trong YAML. [Chế độ phát lại](http://127.0.0.1:5173/?preview=1)
 mở dữ liệu đã xuất trước đó với bộ tham số v0.1.
 
-Giao diện web tổ chức theo các use case thiết lập môi trường, huấn luyện,
-thử nghiệm, so sánh và báo cáo. Hồ sơ môi trường, nhật ký CSV và kết quả
-thử nghiệm được lưu trong trình duyệt. Thử nghiệm Baseline dùng một tệp JSON
-chứa mảng `weather` hoặc mảng trực tiếp gồm `maxDays + 1` bản ghi với các
-trường `temperature`, `rain_probability`, `rain_forecast_mm` và `actual_rain_mm`.
-So sánh hỗ trợ nhập episode `agriwater.episode/1` đã hoàn tất. Nhật ký học
-dùng CSV gồm `episode,reward,loss`, với `loss` tùy chọn.
-Nút huấn luyện Q-Learning/DQN chờ tích hợp backend của các thuật toán.
+- **Thiết lập môi trường** lưu hồ sơ trong trình duyệt. Nút thời tiết trên ruộng
+  cập nhật các ngày chưa mô phỏng trong phiên đang chạy.
+- **Huấn luyện** chạy Q-Learning hoặc DQN trên CPU, hiển thị số episode và tổng
+  số bước. Checkpoint được lưu trong `models/` và được dùng khi mở phiên mới.
+  Baseline sẵn sàng ngay khi API chạy. Q-Learning và DQN sẵn sàng khi API đọc được
+  `models/q_table.npz` và `models/dqn_best.pt` tương ứng. Thư mục này được gắn
+  vào container để giữ checkpoint khi dựng lại.
+- **Thử nghiệm** chạy cả vụ bằng chiến lược được chọn. Thời tiết có thể sinh từ
+  kịch bản và seed hoặc lấy từ tệp JSON gồm `maxDays + 1` bản ghi. Từng bản ghi
+  có `temperature`, `rain_probability`, `rain_forecast_mm`, `actual_rain_mm`.
+- **So sánh và báo cáo** đọc kết quả trong trình duyệt hoặc nhận episode đã hoàn
+  thành theo schema `agriwater.episode/1`. CSV huấn luyện dùng các cột
+  `episode,reward,loss`, với `loss` tùy chọn.
 
 ## Cấu trúc và trạng thái
 
@@ -55,8 +54,9 @@ agriwater/
   config.py     (load_config dùng chung, đã triển khai)
   environment/  (__init__.py, agriwater_env.py, weather.py, demo.py)
   agents/       (__init__.py, base_agent.py, baseline.py, q_learning.py, dqn.py, reward.py)
-  training/     (__init__.py, train.py)
-  evaluation/   (__init__.py, evaluate.py, metrics.py)
+  training/     (__init__.py, train.py, q_learning.py)
+  evaluation/   (__init__.py, evaluate.py, eval.py, metrics.py)
+  api/          (app.py, runtime.py, training.py)
   dashboard/    (__init__.py, app.py, demo_config.py, plots.py)
 configs/        (environment.yaml, training.yaml, scenarios.yaml)
 tests/          (test_config.py, test_environment.py, test_reward.py, test_demo.py, test_dashboard.py, test_interfaces.py)
@@ -80,8 +80,7 @@ main.py         (file có sẵn được giữ nguyên, không phải entry poin
 reward sáu thành phần, demo không học và environment/weather. `config.py`,
 `reward.py`, `demo.py`, `agriwater_env.py` và `weather.py` cùng test tương ứng đã
 có trên `feature/reward-demo` (environment merge từ `feature/environment`).
-API đã có Baseline theo ngưỡng độ ẩm. Huấn luyện và chạy thử trực tiếp
-Q-Learning/DQN trên dashboard đang chờ tích hợp.
+API dùng Baseline theo ngưỡng độ ẩm và phục vụ huấn luyện, thử nghiệm với Q-Learning và DQN.
 
 - Để chạy và trình bày với thầy: [BAO_CAO_MOI_TRUONG](docs/BAO_CAO_MOI_TRUONG.md).
 - API và dữ liệu hiện hành: [DESIGN_CONTRACT](docs/DESIGN_CONTRACT.md).
@@ -189,13 +188,17 @@ python -m streamlit run agriwater/dashboard/app.py
 Dashboard đọc YAML và cho chọn kịch bản, seed, thông số đầu vụ và các chế độ
 tưới mô phỏng. Có KPI, biểu đồ độ ẩm, nước tưới, mưa, reward và tải CSV. Chi tiết và giới hạn ở [DASHBOARD](docs/DASHBOARD.md).
 
-## Huấn luyện và đánh giá sau này
+## Huấn luyện và đánh giá từ dòng lệnh
 
-Sau khi hoàn thành module và chốt CLI, các entry point là
-`python -m agriwater.training.train` và `python -m agriwater.evaluation.evaluate`.
-**Hiện các lệnh này chỉ báo chưa triển khai**, không sinh mô hình hay kết quả.
-Xem [hướng dẫn thực nghiệm](docs/EXPERIMENT_GUIDE.md) trước khi xây pipeline.
-Để xem dashboard minh họa: `python -m streamlit run agriwater/dashboard/app.py`.
+```bash
+python -m agriwater.training.q_learning --episodes 1000
+python -m agriwater.evaluation.eval --model models/q_table.npz
+python -m agriwater.training.train --episodes 1000
+python -m agriwater.evaluation.evaluate --model models/dqn_best.pt
+```
+
+Xem [hướng dẫn thực nghiệm](docs/EXPERIMENT_GUIDE.md) để thiết lập seed
+và đối chiếu các lượt chạy.
 
 ## Cộng tác và quy tắc
 

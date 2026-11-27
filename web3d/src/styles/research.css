@@ -45,3 +45,16 @@
 .study-chart { margin-top: 14px; }
 .study-chart .chart--line { height: 260px; }
 .study-chart-key { display: flex; flex-wrap: wrap; gap: 16px; }
+
+.study-progress {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 12px 0;
+}
+
+.study-progress progress {
+  width: min(260px, 100%);
+  accent-color: #476175;
+}

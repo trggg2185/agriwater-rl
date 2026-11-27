@@ -7,11 +7,14 @@ services:
         WORKDIR /app
         COPY requirements.txt .
         RUN pip install --no-cache-dir -c requirements.txt fastapi uvicorn gymnasium numpy PyYAML
+        RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu -c requirements.txt torch
         COPY agriwater/ agriwater/
         COPY configs/ configs/
         CMD ["python", "-m", "uvicorn", "agriwater.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "127.0.0.1:8000:8000"
+    volumes:
+      - ./models:/app/models
     healthcheck:
       test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/health', timeout=2).close()"]
       interval: 5s

@@ -8,8 +8,15 @@ import pandas as pd
 import streamlit as st
 
 from agriwater.config import load_config
+from agriwater.dashboard.plots import (
+    component_totals,
+    compute_metrics,
+    cumulative_reward,
+    daily_ideal_bounds,
+    records_to_frame,
+)
 from agriwater.environment.agriwater_env import AgriWaterEnv
-from agriwater.environment.demo import RECORD_COLUMNS, _record
+from agriwater.environment.demo import _record
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -88,6 +95,8 @@ def main() -> None:
                 scenario=scenario,
                 seed=int(seed),
                 initial_moisture=moisture / 100,
+                initial_stage=stage,
+                config=config,
             )
 
     sim = st.session_state.get("simulation")
@@ -155,12 +164,51 @@ def main() -> None:
         else:
             st.rerun()
 
+    q_table_path = Path(__file__).resolve().parents[2] / "models" / "q_table.npz"
+    if q_table_path.exists():
+        q_left, q_right = st.columns(2)
+        q_one = q_left.button(
+            "Chạy một ngày (Q-Learning ε=0)", disabled=sim["done"], use_container_width=True
+        )
+        q_all = q_right.button(
+            "Chạy hết với Q-Learning (ε=0)", disabled=sim["done"], use_container_width=True
+        )
+        if q_one or q_all:
+            try:
+                q_agent = st.session_state.get("q_agent")
+                if q_agent is None:
+                    from agriwater.agents.q_agent import QLearningAgent
+
+                    q_agent = QLearningAgent.load(q_table_path, seed=0)
+                    st.session_state["q_agent"] = q_agent
+                for _ in range(1 if q_one else sim["env"].max_days - len(sim["rows"])):
+                    chosen = q_agent.select_action(sim["state"], training=False)
+                    state, reward, terminated, truncated, info = sim["env"].step(chosen)
+                    sim["rows"].append(_record(info, chosen, reward, terminated, truncated))
+                    sim.update(state=state, info=info, done=terminated or truncated)
+                    if sim["done"]:
+                        break
+            except (ValueError, OSError, NotImplementedError) as exc:
+                st.error(f"Không thể tiếp tục: {exc}. Hãy kiểm tra cấu hình và khởi tạo lại.")
+            else:
+                st.rerun()
+    else:
+        st.caption(
+            "Chưa có checkpoint Q-Learning (`models/q_table.npz`). "
+            "Chạy `python -m agriwater.training.q_learning` để bật demo Q-Learning."
+        )
+
     state, info, rows = sim["state"], sim["info"], sim["rows"]
-    a, b, c, d = st.columns(4)
+    frame = records_to_frame(rows)
+    metrics = compute_metrics(frame)
+    a, b, c, d, e = st.columns(5)
     a.metric("Ngày đã chạy", f"{info['day']} / {sim['env'].max_days}")
     b.metric("Độ ẩm hiện tại", f"{state[2] * 100:.1f}%")
-    c.metric("Tổng nước tưới", f"{sum(r['water_used_liters'] for r in rows):.0f} L")
-    d.metric("Tổng reward", f"{sum(r['reward'] for r in rows):.1f}")
+    c.metric("Tổng nước tưới", f"{metrics['total_water_liters']:.0f} L")
+    d.metric("Tổng reward", f"{metrics['total_reward']:.1f}")
+    e.metric("Độ ẩm lý tưởng", f"{metrics['ideal_ratio']:.0%}" if rows else "—")
+    if rows:
+        st.caption(f"Số ngày stress: {metrics['stress_days']}")
     if sim["done"]:
         last = rows[-1]
         reasons = []
@@ -194,17 +242,29 @@ def main() -> None:
             "Độ ẩm (%)": [sim["initial_moisture"] * 100] + [r["soil_moisture"] * 100 for r in rows],
         }
     ).set_index("Ngày")
+    season_config = {**sim["config"], "initial_state": {"growth_stage": sim["initial_stage"]}}
+    lower, upper = daily_ideal_bounds(pd.DataFrame({"day": curve.index}), season_config)
+    curve["Cận lý tưởng dưới (%)"] = [v * 100 for v in lower]
+    curve["Cận lý tưởng trên (%)"] = [v * 100 for v in upper]
     st.subheader("Diễn biến độ ẩm")
     st.line_chart(curve)
     if rows:
-        frame = pd.DataFrame(rows, columns=RECORD_COLUMNS)
         charts, details = st.tabs(["Nước và reward", "Bảng dữ liệu"])
         with charts:
             st.caption("Nước tưới (L) và mưa thực (mm) có đơn vị khác nhau, hiển thị riêng.")
             x, y = st.columns(2)
             x.bar_chart(frame.set_index("day")[["water_used_liters"]])
             y.bar_chart(frame.set_index("day")[["actual_rain_mm"]])
-            st.line_chart(frame.set_index("day")[["reward"]])
+            rewards = frame.set_index("day")[["reward"]].assign(
+                cumulative_reward=cumulative_reward(frame)
+            )
+            st.line_chart(rewards)
+            st.dataframe(
+                pd.DataFrame(
+                    component_totals(frame).items(), columns=["Thành phần reward", "Tổng điểm"]
+                ),
+                hide_index=True,
+            )
         with details:
             st.dataframe(frame, use_container_width=True, hide_index=True)
         st.subheader("Giải thích bước vừa chạy")

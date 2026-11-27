@@ -10,21 +10,18 @@ from __future__ import annotations
 import argparse
 import csv
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-import matplotlib
 import numpy as np
 import yaml
 
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-
-from agriwater.agents.base_agent import BaseAgent  # noqa: E402
-from agriwater.agents.q_agent import QLearningAgent  # noqa: E402
-from agriwater.config import load_config  # noqa: E402
-from agriwater.environment.agriwater_env import AgriWaterEnv  # noqa: E402
-from agriwater.environment.weather import generate_weather  # noqa: E402
+from agriwater.agents.base_agent import BaseAgent
+from agriwater.agents.q_agent import QLearningAgent
+from agriwater.config import load_config
+from agriwater.environment.agriwater_env import AgriWaterEnv
+from agriwater.environment.weather import generate_weather
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MODEL_PATH = ROOT / "models" / "q_table.npz"
@@ -42,7 +39,9 @@ def _moving_average(values: np.ndarray, window: int = 100) -> np.ndarray:
     cumsum = np.cumsum(np.insert(values, 0, 0.0))
     ma = (cumsum[effective:] - cumsum[:-effective]) / float(effective)
     # Pad prefix with expanding mean so x-axis aligns 1:1 with episodes.
-    prefix = np.array([float(np.mean(values[: i + 1])) for i in range(effective - 1)], dtype=np.float64)
+    prefix = np.array(
+        [float(np.mean(values[: i + 1])) for i in range(effective - 1)], dtype=np.float64
+    )
     return np.concatenate([prefix, ma])
 
 
@@ -54,6 +53,11 @@ def plot_learning_curve(
     window: int = 100,
 ) -> Path:
     """Save a headless 2-panel Learning Curve figure (Reward + Epsilon/TD Error)."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
     target = Path(output_path)
     target.parent.mkdir(parents=True, exist_ok=True)
 
@@ -64,23 +68,33 @@ def plot_learning_curve(
     ma_reward = _moving_average(reward_arr, window=window)
     ma_loss = _moving_average(loss_arr, window=window)
 
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 7), sharex=True, gridspec_kw={"height_ratios": [2, 1]})
+    fig, (ax1, ax2) = plt.subplots(
+        2, 1, figsize=(10, 7), sharex=True, gridspec_kw={"height_ratios": [2, 1]}
+    )
 
-    ax1.plot(episodes, reward_arr, color="#9ecae1", alpha=0.35, linewidth=0.8, label="Episode Reward")
-    ax1.plot(episodes, ma_reward, color="#08519c", linewidth=2.0, label=f"Moving Average ({window} ep)")
+    ax1.plot(
+        episodes, reward_arr, color="#9ecae1", alpha=0.35, linewidth=0.8, label="Episode Reward"
+    )
+    ax1.plot(
+        episodes, ma_reward, color="#08519c", linewidth=2.0, label=f"Moving Average ({window} ep)"
+    )
     ax1.set_ylabel("Total Reward")
     ax1.set_title("Tabular Q-Learning · Learning Curve (AgriWater-RL)")
     ax1.grid(True, linestyle="--", alpha=0.4)
     ax1.legend(loc="lower right")
 
-    ax2.plot(episodes, ma_loss, color="#d95f0e", linewidth=1.6, label=f"Mean |TD Error| (MA {window})")
+    ax2.plot(
+        episodes, ma_loss, color="#d95f0e", linewidth=1.6, label=f"Mean |TD Error| (MA {window})"
+    )
     ax2.set_xlabel("Episode")
     ax2.set_ylabel("Mean |TD Error|", color="#d95f0e")
     ax2.tick_params(axis="y", labelcolor="#d95f0e")
     ax2.grid(True, linestyle="--", alpha=0.4)
 
     ax2_right = ax2.twinx()
-    ax2_right.plot(episodes, eps_arr, color="#2ca25f", linestyle="--", linewidth=1.5, label="Epsilon (ε)")
+    ax2_right.plot(
+        episodes, eps_arr, color="#2ca25f", linestyle="--", linewidth=1.5, label="Epsilon (ε)"
+    )
     ax2_right.set_ylabel("Epsilon (ε)", color="#2ca25f")
     ax2_right.set_ylim(0.0, 1.05)
     ax2_right.tick_params(axis="y", labelcolor="#2ca25f")
@@ -111,6 +125,7 @@ def train_q_learning(
     *,
     scenario: str = "mixed",
     episodes: int = 15000,
+    total_timesteps: int | None = None,
     alpha: float = 0.1,
     gamma: float = 0.99,
     epsilon_start: float = 1.0,
@@ -118,13 +133,18 @@ def train_q_learning(
     epsilon_decay: float = 0.9997,
     seed: int = 42,
     model_out: str | Path = DEFAULT_MODEL_PATH,
-    log_out: str | Path = DEFAULT_LOG_PATH,
-    plot_out: str | Path = DEFAULT_PLOT_PATH,
+    log_out: str | Path | None = DEFAULT_LOG_PATH,
+    plot_out: str | Path | None = DEFAULT_PLOT_PATH,
     verbose: bool = True,
+    on_episode: Callable[[dict[str, Any]], None] | None = None,
 ) -> tuple[QLearningAgent, list[dict[str, Any]]]:
     """Train a Tabular Q-learning agent headless and persist model, CSV log, and plot."""
     if scenario not in {"mixed", "dry", "stormy", "random"}:
         raise ValueError("scenario must be one of: mixed, dry, stormy, random")
+
+    if total_timesteps is not None and total_timesteps < 1:
+        raise ValueError("total_timesteps must be positive")
+    episode_limit = total_timesteps if total_timesteps is not None else episodes
 
     rng = np.random.default_rng(seed)
     agent = QLearningAgent(
@@ -155,8 +175,9 @@ def train_q_learning(
     epsilons_hist: list[float] = []
 
     start_time = time.perf_counter()
+    timesteps = 0
     try:
-        for ep in range(1, episodes + 1):
+        for ep in range(1, episode_limit + 1):
             if scenario == "mixed":
                 ep_scenario = str(rng.choice(MIXED_SCENARIOS, p=MIXED_PROBS))
             else:
@@ -178,14 +199,18 @@ def train_q_learning(
             while True:
                 action = agent.select_action(state, training=True)
                 next_state, reward, terminated, truncated, _ = env.step(action)
-                td_error = agent.update(state, action, reward, next_state, terminated, truncated)
+                timesteps += 1
+                budget_reached = timesteps == total_timesteps
+                td_error = agent.update(
+                    state, action, reward, next_state, terminated, truncated or budget_reached
+                )
 
                 ep_reward += float(reward)
                 td_abs_sum += abs(td_error)
                 steps += 1
                 state = next_state
 
-                if terminated or truncated:
+                if terminated or truncated or budget_reached:
                     break
 
             mean_loss = td_abs_sum / max(1, steps)
@@ -207,6 +232,9 @@ def train_q_learning(
                 }
             )
 
+            if on_episode is not None:
+                on_episode(records[-1])
+
             if verbose and (ep == 1 or ep % max(1, episodes // 10) == 0 or ep == episodes):
                 recent_avg = float(np.mean(rewards_hist[-100:]))
                 print(
@@ -214,6 +242,8 @@ def train_q_learning(
                     f"ep_reward={ep_reward:7.2f} | loss={mean_loss:6.3f} | eps={current_eps:.4f}",
                     flush=True,
                 )
+            if budget_reached:
+                break
     finally:
         for env in envs.values():
             env.close()
@@ -225,15 +255,18 @@ def train_q_learning(
         model_out,
         metadata={
             "scenario": scenario,
-            "episodes": episodes,
+            "episodes": len(records),
+            "timesteps": timesteps,
             "seed": seed,
             "elapsed_seconds": round(elapsed, 3),
             "num_states": agent.discretizer.num_states,
             "nonzero_q_ratio": round(nonzero_ratio, 4),
         },
     )
-    save_training_log(records, log_out)
-    plot_learning_curve(rewards_hist, losses_hist, epsilons_hist, plot_out)
+    if log_out is not None:
+        save_training_log(records, log_out)
+    if plot_out is not None:
+        plot_learning_curve(rewards_hist, losses_hist, epsilons_hist, plot_out)
 
     if verbose:
         print(
@@ -247,11 +280,15 @@ def train_q_learning(
     return agent, records
 
 
-def train(agent: BaseAgent, env: AgriWaterEnv, config_path: Path) -> None:
+def train(agent: BaseAgent, env: AgriWaterEnv, config_path: Path | None) -> None:
     """Train a QLearningAgent on a provided env using hyperparameters from a YAML config."""
     if not isinstance(agent, QLearningAgent):
         raise TypeError("Only QLearningAgent is supported by tabular train()")
-    cfg = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
+    cfg = (
+        load_config("training")
+        if config_path is None
+        else yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    )
     q_cfg = cfg.get("q_learning", {})
     episodes = int(q_cfg.get("episodes", 1000))
     seed = int(cfg.get("seed", 42))
@@ -272,7 +309,9 @@ def train(agent: BaseAgent, env: AgriWaterEnv, config_path: Path) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Train Tabular Q-learning for AgriWater-RL (headless).")
+    parser = argparse.ArgumentParser(
+        description="Train Tabular Q-learning for AgriWater-RL (headless)."
+    )
     parser.add_argument("--scenario", choices=["mixed", "dry", "stormy", "random"], default="mixed")
     parser.add_argument("--episodes", type=int, default=15000)
     parser.add_argument("--alpha", type=float, default=0.1)

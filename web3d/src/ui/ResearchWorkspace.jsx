@@ -147,10 +147,86 @@ export function Environment({ profile, save, state, apply }) {
   </Section>;
 }
 
-export function Training({ profile, addRun }) {
+export function Training({ profile, state, addRun, refreshPolicies }) {
   const [algorithm, setAlgorithm] = useState('q_learning');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [starting, setStarting] = useState(false);
+  const [jobId, setJobId] = useState(() => sessionStorage.getItem('agriwater.training.active'));
+  const [progress, setProgress] = useState(null);
+  const busy = starting || Boolean(jobId);
+  const [learningRate, setLearningRate] = useState('0.1');
+
+  useEffect(() => {
+    if (!jobId) return;
+    let disposed = false;
+    let timer;
+    const history = [];
+    function clearJob() {
+      sessionStorage.removeItem('agriwater.training.active');
+      setJobId(null);
+    }
+    async function check() {
+      try {
+        const job = await api.getTraining(jobId, history.length);
+        if (disposed) return;
+        history.push(...job.series);
+        setProgress(job);
+        setError('');
+        if (history.length < job.completedEpisodes || job.status === 'running') {
+          timer = window.setTimeout(check, history.length < job.completedEpisodes ? 0 : 900);
+          return;
+        }
+        if (job.status === 'completed') {
+          addRun({
+            id: job.id, title: `Huấn luyện · seed ${job.seed}`, algorithm: job.algorithm,
+            kind: 'training', date: new Date().toISOString(), series: history,
+          });
+          setMessage(`${STRATEGIES[job.algorithm]} đã sẵn sàng. Đã lưu đường học vào Báo cáo kết quả.`);
+          void refreshPolicies();
+        } else {
+          setError(job.error);
+        }
+        clearJob();
+      } catch (issue) {
+        if (disposed) return;
+        setError(issue.message);
+        if (issue.message.startsWith('404 ')) clearJob();
+        else timer = window.setTimeout(check, 2500);
+      }
+    }
+    void check();
+    return () => {
+      disposed = true;
+      window.clearTimeout(timer);
+    };
+  }, [jobId, addRun, refreshPolicies]);
+
+  async function start(event) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setError('');
+    setMessage('');
+    setProgress(null);
+    setStarting(true);
+    try {
+      const job = await api.startTraining({
+        algorithm,
+        scenario: profile?.scenario ?? 'mixed',
+        seed: profile?.seed ?? state.seed,
+        total_timesteps: Number(data.get('totalTimesteps')),
+        learning_rate: Number(learningRate),
+        gamma: Number(data.get('gamma')),
+        epsilon_start: Number(data.get('epsilon')),
+      });
+      sessionStorage.setItem('agriwater.training.active', job.id);
+      setJobId(job.id);
+    } catch (issue) {
+      setError(issue.message);
+    } finally {
+      setStarting(false);
+    }
+  }
 
   async function importLog(event) {
     const file = event.target.files[0];
@@ -171,19 +247,30 @@ export function Training({ profile, addRun }) {
   }
 
   return <Section title="Huấn luyện thuật toán RL">
-    <form>
+    <form onSubmit={start}>
       <div className="study-grid">
-        <label>Thuật toán<select value={algorithm} onChange={(event) => setAlgorithm(event.target.value)}><option value="q_learning">Q-Learning</option><option value="dqn">DQN</option></select></label>
-        <label>Learning Rate (α)<input type="number" min=".000001" max="1" step="any" required /></label>
-        <label>Discount Factor (γ)<input type="number" min="0" max="1" step="any" defaultValue=".99" required /></label>
-        <label>Xác suất khám phá (ε)<input type="number" min="0" max="1" step="any" /></label>
-        <label>Total Timesteps<input type="number" min="1" step="1" required /></label>
-        <label>Nhật ký huấn luyện CSV<input type="file" accept=".csv,text/csv" onChange={importLog} /></label>
+        <label>Thuật toán<select value={algorithm} disabled={busy} onChange={(event) => {
+          setAlgorithm(event.target.value);
+          setLearningRate(event.target.value === 'dqn' ? '0.001' : '0.1');
+        }}><option value="q_learning">Q-Learning</option><option value="dqn">DQN</option></select></label>
+        <label>Learning Rate (α)<input type="number" min=".000001" max="1" step="any" value={learningRate} onChange={(event) => setLearningRate(event.target.value)} required disabled={busy} /></label>
+        <label>Discount Factor (γ)<input name="gamma" type="number" min="0" max="0.9999999999999999" step="any" defaultValue=".99" required disabled={busy} /></label>
+        <label>Xác suất khám phá ban đầu (ε)<input name="epsilon" type="number" min="0" max="1" step="any" defaultValue="1" required disabled={busy} /></label>
+        <label>Total Timesteps<input name="totalTimesteps" type="number" min="1" max="450000" step="1" defaultValue="30000" required disabled={busy} /></label>
+        <label>Nhật ký huấn luyện CSV<input type="file" accept=".csv,text/csv" onChange={importLog} disabled={busy} /></label>
       </div>
-      <Status message={profile ? 'Chưa kết nối dịch vụ huấn luyện Q-Learning và DQN.' : 'Cần lưu thiết lập môi trường và kết nối dịch vụ huấn luyện.'} />
+      <p className="study-status">
+        {profile ? `Kịch bản ${profile.scenario} · seed ${profile.seed}` : `Kết hợp ba kịch bản · seed ${state.seed}`}.
+        {' '}Sau khi hoàn tất, mô hình mới sẽ được dùng cho các phiên mở sau đó.
+      </p>
+      {progress && <div className="study-progress" role="status">
+        <progress aria-label="Tiến độ huấn luyện" value={progress.timesteps} max={progress.targetTimesteps} />
+        <span>{progress.timesteps}/{progress.targetTimesteps} bước mô phỏng · {progress.completedEpisodes} tập đã ghi</span>
+      </div>}
+      <Status message={!state.apiConnected && !busy ? 'Chưa kết nối được API huấn luyện.' : ''} />
       <Status message={error} error />
       <Status message={message} />
-      <div className="study-actions"><button type="button" disabled>Bắt đầu huấn luyện</button></div>
+      <div className="study-actions"><button type="submit" disabled={busy || !state.apiConnected}>{busy ? 'Đang huấn luyện…' : 'Bắt đầu huấn luyện'}</button></div>
     </form>
   </Section>;
 }
@@ -191,6 +278,8 @@ export function Training({ profile, addRun }) {
 export function Experiment({ profile, state, addRun }) {
   const [file, setFile] = useState(null);
   const [policy, setPolicy] = useState('baseline');
+  const [scenario, setScenario] = useState(profile?.scenario ?? state.scenario);
+  const [seed, setSeed] = useState(profile?.seed ?? state.seed);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -200,13 +289,13 @@ export function Experiment({ profile, state, addRun }) {
     setMessage('');
     setBusy(true);
     try {
-      const weather = validateWeather(await readJson(file), state.meta.maxDays);
-      const chosen = profile ?? { crop: state.crop, scenario: state.scenario, seed: state.seed };
-      const payload = await api.createSession({
-        ...chosen, policy, weather, startDay: state.meta.maxDays,
-      }, { timeoutMs: 15000 });
+      const inputs = profile ? switchScenario(profile, scenario) : { crop: state.crop };
+      const chosen = { ...inputs, scenario, seed: Number(seed) };
+      const weather = file ? validateWeather(await readJson(file), state.meta.maxDays)
+        : chosen.seed === profile?.seed ? chosen.weather : undefined;
+      const payload = await api.runExperiment({ ...chosen, policy, weather });
       const episode = normalizeEpisode(payload);
-      const result = runRow(episode, policy, chosen, file.name);
+      const result = runRow(episode, policy, chosen, file?.name ?? chosen.scenario);
       addRun(result);
       setMessage(`Thử nghiệm ${STRATEGIES[policy]} hoàn tất. Đã lưu ${result.series.length} bước để xem báo cáo.`);
     } catch (issue) {
@@ -218,17 +307,24 @@ export function Experiment({ profile, state, addRun }) {
   return <Section title="Thử nghiệm đa kịch bản">
     <form onSubmit={run}>
       <div className="study-grid">
-        <label>Nguồn kịch bản thời tiết<input type="file" accept=".json,application/json" required disabled={busy} onChange={(e) => setFile(e.target.files[0])} /></label>
+        <label>Kịch bản<select value={scenario} disabled={busy} onChange={(e) => setScenario(e.target.value)}>
+          {state.meta.scenarios.map(({ key, label }) => <option key={key} value={key}>{label}</option>)}
+        </select></label>
+        <label>Seed<input type="number" min="0" max="4294967295" step="1" value={seed} required disabled={busy} onChange={(e) => setSeed(e.target.value)} /></label>
+        <label>Nguồn kịch bản thời tiết<input type="file" accept=".json,application/json" disabled={busy} onChange={(e) => setFile(e.target.files[0])} /></label>
         <label>Mô hình<select value={policy} disabled={busy} onChange={(e) => setPolicy(e.target.value)}>
-          <option value="baseline">{STRATEGIES.baseline}</option>
-          <option value="q_learning">{STRATEGIES.q_learning} (ε = 0)</option>
-          <option disabled>DQN · chưa có mô hình</option>
+          {Object.entries(STRATEGIES).map(([key, label]) => {
+            const status = state.policies.find((item) => item.key === key);
+            return <option key={key} value={key} disabled={!status?.available} title={status?.reason}>
+              {label}{status?.available ? '' : ' · chưa sẵn sàng'}
+            </option>;
+          })}
         </select></label>
       </div>
-      <p className="study-status">JSON gồm {state.meta.maxDays + 1} dòng có các trường <code>temperature</code>, <code>rain_probability</code>, <code>rain_forecast_mm</code> và <code>actual_rain_mm</code>.</p>
+      <p className="study-status">Nếu để trống, API dùng thời tiết từ thiết lập đã lưu hoặc sinh theo kịch bản và seed hiện tại. Tệp JSON tùy chọn gồm {state.meta.maxDays + 1} bản ghi có các trường <code>temperature</code>, <code>rain_probability</code>, <code>rain_forecast_mm</code> và <code>actual_rain_mm</code>.</p>
       <Status message={message} />
       <Status message={error} error />
-      <div className="study-actions"><button disabled={busy} type="submit">{busy ? 'Đang chạy thử nghiệm…' : 'Chạy thử nghiệm'}</button></div>
+      <div className="study-actions"><button disabled={busy || !state.policies.some((item) => item.key === policy && item.available)} type="submit">{busy ? 'Đang chạy thử nghiệm…' : 'Chạy thử nghiệm'}</button></div>
     </form>
   </Section>;
 }

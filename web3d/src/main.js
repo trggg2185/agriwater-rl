@@ -28,6 +28,7 @@ import './styles/research.css';
 import * as api from './data/apiClient.js';
 import { createMockSession } from './data/mock.js';
 import { createPlayback } from './data/playback.js';
+import { STRATEGIES } from './data/research.js';
 import { episodeUrl, loadEpisode, normalizeEpisode } from './data/replay.js';
 import { createFieldScene } from './scene/FieldScene2D.js';
 import { createStore } from './state/store.js';
@@ -77,6 +78,8 @@ let liveSessionId = session.sessionId ?? null;
 
 const store = createStore({
   ...session,
+  policies: [],
+  apiConnected: Boolean(liveSessionId),
   policy: session.policy ?? 'baseline',
   activeTab: 'overview',
   day: session.dataSource === 'api' ? session.day : Math.min(DEFAULT_OPEN_DAY, session.series.length),
@@ -137,6 +140,18 @@ async function applyIrrigation(liters, automatic) {
 const headCount = SCENE.sprinklers.headCount;
 
 const actions = {
+  async refreshPolicies() {
+    try {
+      const meta = await api.getMeta();
+      const policies = meta.policies ?? Object.entries(STRATEGIES).map(([key, label]) => ({
+        key, label, available: (meta.availablePolicies ?? ['baseline']).includes(key),
+      }));
+      store.setState({ policies, apiConnected: true });
+    } catch {
+      store.setState({ policies: [], apiConnected: false });
+    }
+  },
+
   /**
    * Đổi ván. Ở chế độ live thì mở session mới trên server; nếu không thì tải
    * episode JSON tương ứng, cuối cùng mới rơi về mock.
@@ -163,6 +178,7 @@ const actions = {
     if (token !== regenerateToken) return; // đã có người bấm sau, bỏ kết quả cũ
 
     liveSessionId = next.sessionId ?? null;
+    if (liveSessionId && !state.apiConnected) void actions.refreshPolicies();
     store.setState({
       meta: next.meta,
       series: next.series,
@@ -183,7 +199,7 @@ const actions = {
   },
 
   async selectPolicy(policy) {
-    const label = policy === 'q_learning' ? 'Q-Learning (ε = 0)' : 'Rule-based Baseline';
+    const label = STRATEGIES[policy];
     await actions.regenerate({ policy }, { keepDay: false });
     if (store.getState().policy === policy) {
       notify(`Đã chuyển chính sách sang ${label}.`);
@@ -271,6 +287,8 @@ window.addEventListener('keydown', (event) => {
     }
   }
 });
+
+if (!previewMode) void actions.refreshPolicies();
 
 const loader = document.getElementById('loader');
 window.setTimeout(() => loader?.classList.add('is-done'), 520);

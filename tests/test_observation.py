@@ -26,8 +26,15 @@ from agriwater.environment.observation import (
     encode_temperature,
 )
 
-_NAMES = (CROP_TYPE, GROWTH_STAGE, SOIL_MOISTURE, TEMPERATURE, RAIN_PROBABILITY,
-          RAIN_FORECAST_MM, LAST_IRRIGATION)
+_NAMES = (
+    CROP_TYPE,
+    GROWTH_STAGE,
+    SOIL_MOISTURE,
+    TEMPERATURE,
+    RAIN_PROBABILITY,
+    RAIN_FORECAST_MM,
+    LAST_IRRIGATION,
+)
 
 
 def test_named_indices_cover_every_dimension_once() -> None:
@@ -63,9 +70,7 @@ def test_encode_decode_round_trip_inside_declared_ranges() -> None:
     for celsius in (15.0, 22.5, 45.0):
         assert decode_temperature(encode_temperature(celsius)) == pytest.approx(celsius)
     for millimetres in (0.0, 12.5, RAIN_FORECAST_MAX_MM):
-        assert decode_rain_forecast(encode_rain_forecast(millimetres)) == pytest.approx(
-            millimetres
-        )
+        assert decode_rain_forecast(encode_rain_forecast(millimetres)) == pytest.approx(millimetres)
     for liters in (0.0, 5.0, 25.0):
         assert decode_irrigation(encode_irrigation(liters)) == pytest.approx(liters)
 

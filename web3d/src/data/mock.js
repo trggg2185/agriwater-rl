@@ -29,11 +29,11 @@ export const META = {
     { key: 'random', label: 'Ngẫu nhiên' },
   ],
   agents: [
-    { key: 'dqn', label: 'DQN (Deep Q-Network)', available: true },
     { key: 'random', label: 'Ngẫu nhiên (demo)', available: true },
-    { key: 'fixed', label: 'Cố định 10 L', available: true },
+    { key: 'fixed', label: 'Cố định 0–5 L', available: true },
     { key: 'baseline', label: 'Baseline', available: false, reason: 'chưa triển khai' },
     { key: 'q_learning', label: 'Q-Learning', available: false, reason: 'chưa triển khai' },
+    { key: 'dqn', label: 'DQN', available: false, reason: 'chưa triển khai' },
   ],
   stepLabel: '1 step = 1 ngày',
   isIllustrative: true,

@@ -58,10 +58,16 @@ class StateDiscretizer:
         # Pre-convert bin edges to float32 once to avoid per-step allocations
         # and match reward.py / agriwater_env.py float32 threshold semantics.
         object.__setattr__(self, "_moisture_f32", np.asarray(self.moisture_edges, dtype=np.float32))
-        object.__setattr__(self, "_temperature_f32", np.asarray(self.temperature_edges, dtype=np.float32))
-        object.__setattr__(self, "_rain_prob_f32", np.asarray(self.rain_prob_edges, dtype=np.float32))
+        object.__setattr__(
+            self, "_temperature_f32", np.asarray(self.temperature_edges, dtype=np.float32)
+        )
+        object.__setattr__(
+            self, "_rain_prob_f32", np.asarray(self.rain_prob_edges, dtype=np.float32)
+        )
         object.__setattr__(self, "_rain_mm_f32", np.asarray(self.rain_mm_edges, dtype=np.float32))
-        object.__setattr__(self, "_last_irr_f32", np.asarray(self.last_irrigation_edges, dtype=np.float32))
+        object.__setattr__(
+            self, "_last_irr_f32", np.asarray(self.last_irrigation_edges, dtype=np.float32)
+        )
 
     @property
     def shape(self) -> tuple[int, ...]:
@@ -201,9 +207,9 @@ class QLearningAgent(BaseAgent):
         """Apply one Q-learning TD update, distinguishing terminated from truncated.
 
         - terminated=True  (biological death): no bootstrap, target = reward.
-        - terminated=False (normal step OR time-limit truncated=True): bootstrap with gamma * max_a' Q(s', a').
+        - terminated=False, including time limits: bootstrap with gamma * max_a' Q(s', a').
         """
-        _ = truncated  # Explicitly accepted for Gymnasium API clarity; only `terminated` cuts off bootstrap.
+        _ = truncated  # Only biological termination cuts off bootstrapping.
         s_idx = self.discretizer.discretize(state)
         action_int = int(action)
         current_q = float(self.q_table[s_idx][action_int])
@@ -258,7 +264,9 @@ class QLearningAgent(BaseAgent):
         discretizer = StateDiscretizer.from_dict(config["discretizer"])
         expected_shape = (*discretizer.shape, int(config["n_actions"]))
         if q_table.shape != expected_shape:
-            raise ValueError(f"Q-table shape mismatch: got {q_table.shape}, expected {expected_shape}")
+            raise ValueError(
+                f"Q-table shape mismatch: got {q_table.shape}, expected {expected_shape}"
+            )
 
         agent = cls(
             n_actions=int(config["n_actions"]),

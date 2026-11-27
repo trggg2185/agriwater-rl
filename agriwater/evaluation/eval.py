@@ -182,7 +182,9 @@ def _plot_comparison(rows: list[dict[str, Any]], output_path: str | Path) -> Pat
                 next(r[key] for r in rows if r["scenario"] == sc and r["policy"] == policy)
                 for sc in SCENARIOS
             ]
-            bars = ax.bar(x + (offset_idx - 1) * width, vals, width, label=policy, color=colors[policy])
+            bars = ax.bar(
+                x + (offset_idx - 1) * width, vals, width, label=policy, color=colors[policy]
+            )
             for bar, v in zip(bars, vals):
                 va = "bottom" if v >= 0 else "top"
                 ax.text(
@@ -225,7 +227,9 @@ def _print_table(rows: list[dict[str, Any]]) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Compare trained Q-Learning vs Random and Baseline policies.")
+    parser = argparse.ArgumentParser(
+        description="Compare trained Q-Learning vs Random and Baseline policies."
+    )
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL_PATH)
     parser.add_argument("--episodes", type=int, default=100)
     parser.add_argument("--seed", type=int, default=1000)
