@@ -17,23 +17,23 @@ reward:
   rain_probability: 0.70
   rain_forecast_mm: 15
   previous_irrigation_liters: 12.5
-# null: can hai thanh vien thong nhat truoc khi trien khai; khong dung nhu so 0.
+# Demo assumptions, NOT calibrated agricultural/FAO-56 data.
 water_balance:
-  plot_area_m2: null # m2; can de quy doi 1 mm mua = 1 lit/m2
-  soil_capacity_liters: null # lit tai do am chuan hoa 1
-  irrigation_efficiency: null # ty le 0-1
-  rain_efficiency: null # ty le 0-1
-  evapotranspiration_liters_per_day: null # lit/ngay; mo hinh nhiet do chua chot
-  drainage_liters_per_day: null # lit/ngay; mo hinh tieu thoat chua chot
-  et_temperature_slope: null # L/ngay/do C tren 15 C; de xuat ET tuyen tinh
-  crop_factors: null # list 4 he so khong don vi, theo ma cay 0-3
-  stage_factors: null # list 4 he so khong don vi, theo giai doan 0-3
-  drainage_threshold: null # do am 0-1 bat dau tieu thoat
-  repeat_irrigation_threshold_liters: null # L, nguong anh huong tuoi lap
-  repeat_irrigation_efficiency: null # 0-1, nhan hieu suat khi tuoi lap
-growth_stage_days: null # moc chuyen giai doan theo ngay, chua chot
-biological_termination: null # dieu kien sinh hoc chua chot
+  plot_area_m2: 1.0 # m2; can de quy doi 1 mm mua = 1 lit/m2
+  soil_capacity_liters: 100.0 # lit tai do am chuan hoa 1
+  irrigation_efficiency: 0.85 # ty le 0-1
+  rain_efficiency: 0.8 # ty le 0-1
+  evapotranspiration_liters_per_day: 3.0 # lit/ngay; mo hinh nhiet do gia dinh demo
+  drainage_liters_per_day: 5.0 # lit/ngay; mo hinh tieu thoat gia dinh demo
+  et_temperature_slope: 0.15 # L/ngay/do C tren 15 C; de xuat ET tuyen tinh
+  crop_factors: [0.9, 1.0, 1.1, 1.2] # list 4 he so khong don vi, theo ma cay 0-3
+  stage_factors: [0.7, 1.0, 1.2, 0.8] # list 4 he so khong don vi, theo giai doan 0-3
+  drainage_threshold: 0.70 # do am 0-1 bat dau tieu thoat
+  repeat_irrigation_threshold_liters: 12.5 # L, nguong anh huong tuoi lap
+  repeat_irrigation_efficiency: 0.85 # 0-1, nhan hieu suat khi tuoi lap
+growth_stage_days: [8, 16, 24] # moc chuyen giai doan theo ngay, gia dinh demo
+biological_termination: [0.05, 0.95] # dieu kien sinh hoc gia dinh demo
 initial_state:
-  crop_type: null # ma nguyen 0-3
-  growth_stage: null # ma nguyen 0-3
-  soil_moisture_range: null # [low, high] trong [0,1], uniform khi reset
+  crop_type: 0 # ma nguyen 0-3
+  growth_stage: 0 # ma nguyen 0-3
+  soil_moisture_range: [0.40, 0.70] # [low, high] trong [0,1], uniform khi reset

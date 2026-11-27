@@ -1,5 +1,11 @@
 # Bắt đầu tại đây — hướng dẫn cho AI của Trưởng và Minh
 
+**Trạng thái mới sau merge:** đọc BAO_CAO_MOI_TRUONG.md và phần đầu
+DESIGN_CONTRACT.md trước. Môi trường/loader/reward/demo đã hoạt động thật,
+163 tests passed, không skip. Các bảng TODO và số test dưới đây là lịch sử bàn
+giao, không được dựa vào chúng để viết lại hoặc hoàn tác chức năng đã có.
+Tuần này chỉ sửa môi trường; thuật toán thuộc các thành viên khác tuần sau.
+
 ## 1. Mục tiêu và giới hạn công việc
 
 Bạn đang làm AgriWater-RL, bài tập môn Học tăng cường. Yêu cầu hiện tại là **xây

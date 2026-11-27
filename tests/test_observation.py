@@ -83,7 +83,7 @@ def test_reset_and_step_write_into_the_named_slots(monkeypatch) -> None:
     from agriwater.dashboard.demo_config import build_demo_config
     from agriwater.environment import agriwater_env
 
-    monkeypatch.setattr(agriwater_env, "calculate_reward", lambda s, a, n: (0.0, {}))
+    monkeypatch.setattr(agriwater_env, "calculate_reward", lambda s, a, n, **kwargs: (0.0, {}))
     config = build_demo_config()
     weather = [
         dict(temperature=27.0, rain_probability=0.25, rain_forecast_mm=10.0, actual_rain_mm=0.0)

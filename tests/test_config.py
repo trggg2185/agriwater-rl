@@ -56,7 +56,12 @@ def test_rejects_non_mapping_yaml(
         load_config("environment")
 
 
-def test_preserves_null_values_instead_of_zero() -> None:
+def test_preserves_null_values_instead_of_zero(monkeypatch, tmp_path) -> None:
+    (tmp_path / "environment.yaml").write_text(
+        "water_balance: {plot_area_m2: null, soil_capacity_liters: null}\n"
+        "growth_stage_days: null\nbiological_termination: null\n"
+    )
+    monkeypatch.setattr(config_module, "_CONFIG_DIR", tmp_path)
     config = load_config("environment")
     assert config["water_balance"]["plot_area_m2"] is None
     assert config["water_balance"]["soil_capacity_liters"] is None

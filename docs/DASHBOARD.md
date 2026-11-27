@@ -34,28 +34,20 @@ python -m streamlit run agriwater/dashboard/app.py --server.headless true
 
 ## Chức năng
 
-- Chọn kịch bản `dry`, `stormy`, `random`; seed; policy ngẫu nhiên hoặc hành động
-  cố định 0–5 (0–25 lít).
+- Chọn kịch bản, seed, số ngày, nhóm cây, giai đoạn và độ ẩm ban đầu.
+- Chạy từng ngày hoặc hết vụ với mức tưới cố định hay ngẫu nhiên.
 - Thẻ KPI: số ngày chạy, tổng nước tưới, tổng reward, tỷ lệ ngày lý tưởng, ngày stress.
 - Biểu đồ độ ẩm đất kèm dải lý tưởng đổi theo giai đoạn sinh trưởng.
 - Biểu đồ nước tưới (L) và mưa thực (mm).
 - Reward tích lũy và phân rã sáu thành phần reward.
 - Bảng 16 cột theo ngày và nút tải CSV.
-- Expander hiển thị cấu hình overlay và phạm vi dữ liệu.
+- Xem dự báo trước hành động và cân bằng nước của bước vừa chạy.
 
-## Quan trọng: overlay v0.1, không sửa YAML
+## Nguồn cấu hình
 
-`configs/environment.yaml` và `configs/scenarios.yaml` vẫn để các khóa vật lý/weather
-là `null` cho tới khi hai thành viên chốt. Dashboard dùng
-`agriwater/dashboard/demo_config.py` để ghép **đề xuất v0.1** vào bản sao cấu hình
-trong bộ nhớ:
-
-- Không ghi đè file YAML.
-- Không thay đổi công thức cân bằng nước, reward hay observation/action.
-- Mọi kết quả trên dashboard là **minh họa**, không phải số liệu nông học.
-
-Khi hai người chốt cấu hình, có thể bỏ overlay và dùng YAML trực tiếp; khi đó
-`check_env` và demo CLI cũng chạy được với cấu hình thật.
+Streamlit dùng các tham số mô phỏng trong `configs/environment.yaml` và
+`configs/scenarios.yaml`. Bộ v0.1 trong `demo_config.py` phục vụ dữ liệu mẫu và
+kiểm thử tương thích. Các bộ tham số đều là giả định mô phỏng chưa hiệu chuẩn.
 
 ## Kiến trúc
 
@@ -78,7 +70,7 @@ Không có tham số nào bắt buộc phải truyền; code cũ giữ nguyên h
 
 - Không huấn luyện, không Q-Learning/DQN, không so sánh thuật toán.
 - Kịch bản `stormy` có thể kết thúc sớm vì ngưỡng chết trên `0.95` và mưa lớn làm
-  đầy nước; đây là hệ quả của đề xuất v0.1, không phải lỗi dashboard.
+  đầy nước theo bộ tham số mô phỏng.
 - Dashboard chưa đọc `training.yaml`; chưa có biểu đồ loss/hội tụ.
 - Không dùng dashboard để kết luận tiết kiệm nước; cần baseline và cùng chuỗi thời
   tiết, cùng trạng thái đầu.

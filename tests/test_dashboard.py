@@ -7,6 +7,7 @@ from typing import Any
 
 import pandas as pd
 import pytest
+from streamlit.testing.v1 import AppTest
 
 from agriwater.config import load_config
 from agriwater.dashboard.demo_config import (
@@ -37,6 +38,7 @@ def _episode(scenario: str = "dry", seed: int = 42, action: int | None = 2):
 
 
 def test_demo_config_fills_physical_values_without_touching_yaml() -> None:
+    before = load_config("environment")
     config = build_demo_config()
     balance = config["water_balance"]
     assert balance["plot_area_m2"] == 1.0
@@ -46,9 +48,7 @@ def test_demo_config_fills_physical_values_without_touching_yaml() -> None:
     assert config["initial_state"]["soil_moisture_range"] == [0.35, 0.55]
     assert config["reward"]["health"] == 10
 
-    on_disk = load_config("environment")
-    assert on_disk["water_balance"]["plot_area_m2"] is None
-    assert on_disk["growth_stage_days"] is None
+    assert load_config("environment") == before
 
 
 def test_demo_config_returns_independent_copies() -> None:
@@ -163,13 +163,43 @@ def test_ideal_bounds_reject_missing_config() -> None:
         daily_ideal_bounds(frame, config)
 
 
-def test_streamlit_app_runs_without_exception() -> None:
-    from streamlit.testing.v1 import AppTest
+APP = Path(__file__).parents[1] / "agriwater/dashboard/app.py"
 
-    app = Path(__file__).parents[1] / "agriwater/dashboard/app.py"
-    tested = AppTest.from_file(str(app), default_timeout=60).run()
-    assert not tested.exception
-    assert not tested.error
-    assert len(tested.metric) == 5
-    assert len(tested.dataframe) == 1
-    assert len(tested.get("vega_lite_chart")) == 4
+
+def click(app, label):
+    return next(button for button in app.button if button.label == label).click().run()
+
+
+def test_dashboard_manual_run_finish_and_reset():
+    app = AppTest.from_file(str(APP)).run(timeout=20)
+    assert not app.exception
+    click(app, "Khởi tạo / Làm lại")
+    assert not app.exception
+    click(app, "Chạy một ngày")
+    assert not app.exception
+    sim = app.session_state["simulation"]
+    assert len(sim["rows"]) == 1
+    assert sim["rows"][0]["water_used_liters"] == 10
+    click(app, "Chạy hết ngẫu nhiên")
+    assert not app.exception
+    sim = app.session_state["simulation"]
+    assert sim["done"]
+    assert sim["rows"][-1]["terminated"] or sim["rows"][-1]["truncated"]
+    assert next(b for b in app.button if b.label == "Chạy một ngày").disabled
+    click(app, "Khởi tạo / Làm lại")
+    assert not app.exception
+    assert app.session_state["simulation"]["rows"] == []
+    assert not app.session_state["simulation"]["done"]
+
+
+def test_dashboard_fixed_action_and_independent_sessions():
+    first = AppTest.from_file(str(APP)).run(timeout=20)
+    click(first, "Khởi tạo / Làm lại")
+    first.select_slider[0].set_value(0).run()
+    click(first, "Chạy hết với mức tưới này")
+    assert not first.exception
+    records = first.session_state["simulation"]["rows"]
+    assert records and all(r["water_used_liters"] == 0 for r in records)
+    second = AppTest.from_file(str(APP)).run(timeout=20)
+    click(second, "Khởi tạo / Làm lại")
+    assert second.session_state["simulation"]["rows"] == []

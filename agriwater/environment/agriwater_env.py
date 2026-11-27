@@ -62,11 +62,15 @@ class AgriWaterEnv(gym.Env):
 
     def __init__(
         self,
-        scenario: str = "random",
-        max_days: int = 30,
+        scenario: str | None = None,
+        max_days: int | None = None,
         render_mode: str | None = None,
         config: Mapping[str, Any] | None = None,
     ) -> None:
+        if scenario is None or max_days is None:
+            defaults = config if config is not None else load_config("environment")
+            scenario = defaults["default_scenario"] if scenario is None else scenario
+            max_days = defaults["max_days"] if max_days is None else max_days
         if scenario not in {"dry", "stormy", "random"}:
             raise ValueError("scenario must be dry, stormy or random")
         if isinstance(max_days, bool) or not isinstance(max_days, int) or max_days < 1:
@@ -127,7 +131,10 @@ class AgriWaterEnv(gym.Env):
             raise ValueError("moisture must be a mapping")
         for key in ("ideal_default", "ideal_stage_2", "stress_bounds"):
             self._bounds(moisture.get(key), f"moisture.{key}")
-        self._bounds(c.get("biological_termination"), "biological_termination")
+        death_low, death_high = self._bounds(c.get("biological_termination"), "biological_termination")
+        stress_low, stress_high = moisture["stress_bounds"]
+        if not death_low < stress_low < stress_high < death_high:
+            raise ValueError("biological_termination must lie outside stress_bounds")
         days = c.get("growth_stage_days")
         if not isinstance(days, list) or len(days) != 3:
             raise ValueError("growth_stage_days must contain three increasing positive days")
@@ -148,6 +155,8 @@ class AgriWaterEnv(gym.Env):
     ) -> tuple[np.ndarray, dict[str, Any]]:
         """b) reset — Bắt đầu lượt mô phỏng ở ngày 0."""
         self._done = True
+        self._state = None
+        self._state_ready = False
         super().reset(seed=seed)
         options = {} if options is None else options
         if not isinstance(options, dict) or set(options) - {
@@ -251,7 +260,9 @@ class AgriWaterEnv(gym.Env):
         )
 
         # b/step 4: Gọi calculate_reward(s, a, s_next), xem mục c trong reward.py.
-        reward, components = calculate_reward(state.copy(), int(action), next_state.copy())
+        reward, components = calculate_reward(
+            state.copy(), int(action), next_state.copy(), config=self._config
+        )
 
         # b/step 5: Khô hạn hoặc ngập úng ở ngưỡng sinh học → terminated.
         # Hết max_days (mặc định 30) → truncated, ưu tiên kết thúc sinh học.

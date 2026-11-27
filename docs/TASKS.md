@@ -1,5 +1,10 @@
 # Phân công xây dựng môi trường thử nghiệm
 
+**Cập nhật sau merge:** phần môi trường của Trưởng và loader/reward/demo của Minh
+đã tích hợp, kiểm tra 163 tests passed. Hai người dùng BAO_CAO_MOI_TRUONG.md để
+trình bày với thầy và review các giả định. Bảng công việc dưới đây là phân công
+ban đầu, không phải yêu cầu làm lại. Thuật toán để thành viên khác làm tuần sau.
+
 AI đọc [AI_START_HERE](AI_START_HERE.md), rồi [AI_TRUONG](AI_TRUONG.md) hoặc
 [AI_MINH](AI_MINH.md). Hướng dẫn vai trò có thứ tự thực hiện và test cụ thể.
 

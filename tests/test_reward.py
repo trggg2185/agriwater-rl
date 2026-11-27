@@ -44,13 +44,6 @@ def observation(
     )
 
 
-@pytest.fixture(autouse=True)
-def _clear_reward_cache() -> None:
-    reward_module._reward_settings.cache_clear()
-    yield
-    reward_module._reward_settings.cache_clear()
-
-
 def test_ideal_without_irrigation() -> None:
     state = observation(moisture=0.50)
     total, parts = calculate_reward(state, 0, state.copy())
@@ -375,3 +368,20 @@ def test_rejects_null_moisture_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
     state = observation()
     with pytest.raises(ValueError, match="ideal_default"):
         calculate_reward(state, 0, state.copy())
+
+
+@pytest.mark.parametrize("index", [0, 1])
+def test_rejects_fractional_category(index: int) -> None:
+    state = observation()
+    state[index] = 0.5
+    with pytest.raises(ValueError, match="decode"):
+        calculate_reward(state, 0, observation())
+
+
+def test_standalone_reward_does_not_keep_stale_coefficients(monkeypatch) -> None:
+    config = copy.deepcopy(load_config("environment"))
+    monkeypatch.setattr(reward_module, "load_config", lambda name: config)
+    state = observation()
+    assert calculate_reward(state, 0, state)[0] == 10
+    config["reward"]["health"] = 7
+    assert calculate_reward(state, 0, state)[0] == 7

@@ -1,16 +1,17 @@
-# Tham so phan phoi chua chot; null khong phai khong co mua.
+# Demo assumptions; uniform forecasts, Bernoulli rain occurrence.
+# Dry temperature and stormy probability/forecast limits follow report section IV.
 dry:
-  description: Kho han, it mua
-  temperature_range_c: null
-  rain_probability_range: null
-  rain_amount_range_mm: null
+  description: Dry
+  temperature_range_c: [35, 42]
+  rain_probability_range: [0, 0.05]
+  rain_amount_range_mm: [0, 5]
 stormy:
-  description: Mua nhieu
-  temperature_range_c: null
-  rain_probability_range: null
-  rain_amount_range_mm: null
+  description: Stormy
+  temperature_range_c: [20, 30]
+  rain_probability_range: [0.70, 1.0]
+  rain_amount_range_mm: [15, 50]
 random:
-  description: Thoi tiet thay doi ngau nhien
-  temperature_range_c: null
-  rain_probability_range: null
-  rain_amount_range_mm: null
+  description: Random
+  temperature_range_c: [15, 45]
+  rain_probability_range: [0, 1]
+  rain_amount_range_mm: [0, 50]
