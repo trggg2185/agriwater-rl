@@ -210,3 +210,54 @@ def test_session_uses_initial_observation_and_uploaded_weather() -> None:
     result = client.post("/api/step", json={"session_id": response.json()["session_id"], "action": 0})
     assert result.json()["series"][-1]["temperature"] == pytest.approx(29)
     assert client.post("/api/session", json={"weather": weather[:-1]}).status_code == 422
+
+
+def test_scenario_supplies_blank_weather_and_honors_first_day_rain() -> None:
+    body = {"scenario": "stormy", "seed": 42, "crop": 1, "start_day": 2}
+    generated = client.post("/api/session", json=body).json()["series"]
+    response = client.post(
+        "/api/session",
+        json={
+            **body,
+            "initial_state": {"growth_stage": 0, "soil_moisture": .45, "actual_rain_mm": 22},
+        },
+    )
+    assert response.status_code == 200, response.text
+    custom = response.json()["series"]
+    assert custom[0]["temperature"] == generated[0]["temperature"]
+    assert custom[0]["rainProbability"] == generated[0]["rainProbability"]
+    assert custom[0]["rainForecastMm"] == generated[0]["rainForecastMm"]
+    assert custom[0]["actualRainMm"] == 22
+    assert custom[1]["actualRainMm"] == generated[1]["actualRainMm"]
+
+
+def test_weather_changes_future_days_without_rewriting_episode() -> None:
+    body = client.post("/api/session", json={"scenario": "dry", "seed": 42, "crop": 1}).json()
+    session_id = body["session_id"]
+    request = {"session_id": session_id, "day": 2, "mode": "storm"}
+    response = client.post("/api/weather", json=request)
+    assert response.status_code == 200
+    assert response.json()["upcomingWeather"] == {
+        "day": 2, "mode": "storm", "temperature": 25,
+        "rainProbability": .95, "rainForecastMm": 25, "actualRainMm": 22,
+    }
+    result = client.post("/api/step", json={"session_id": session_id, "action": 0}).json()
+    assert result["series"][:1] == body["series"]
+    assert result["day"] == 2
+    assert result["series"][1]["actualRainMm"] == 22
+    assert result["series"][1]["temperature"] == pytest.approx(25)
+    assert result["series"][1]["rainProbability"] == pytest.approx(.95)
+    assert result["upcomingWeather"]["mode"] == "storm"
+    assert client.post("/api/weather", json=request).status_code == 409
+
+
+def test_random_weather_uses_seed_and_updates_each_next_day() -> None:
+    session = client.post("/api/session", json={"scenario": "dry", "seed": 42, "crop": 1}).json()
+    session_id = session["session_id"]
+    request = {"session_id": session_id, "day": 2, "mode": "random"}
+    forecast = client.post("/api/weather", json=request).json()["upcomingWeather"]
+    assert client.post("/api/weather", json=request).json()["upcomingWeather"] == forecast
+    result = client.post("/api/step", json={"session_id": session_id, "action": 0}).json()
+    assert result["series"][1]["actualRainMm"] == pytest.approx(forecast["actualRainMm"])
+    assert result["upcomingWeather"]["day"] == 3
+    assert result["upcomingWeather"]["temperature"] != forecast["temperature"]

@@ -4,7 +4,7 @@ import { el, icon } from '../utils/dom.js';
 export function CameraButtons(store, scene) {
   const handButton = el(
     'button',
-    { class: 'camera__btn', type: 'button', 'aria-label': 'Kéo hoặc đặt lại máy quay', 'aria-pressed': 'false' },
+    { class: 'camera__btn', type: 'button', 'aria-label': 'Chế độ kéo máy quay', title: 'Bật hoặc tắt chế độ kéo máy quay. Nhấn Esc để đặt lại khung nhìn.', 'aria-pressed': 'false' },
     [icon('hand')],
   );
   const zoomIn = el('button', { class: 'camera__btn', type: 'button', 'aria-label': 'Phóng to' }, [
@@ -15,9 +15,7 @@ export function CameraButtons(store, scene) {
   ]);
 
   handButton.addEventListener('click', () => {
-    const { handMode } = store.getState();
-    store.setState({ handMode: !handMode });
-    if (handMode) scene.reset();
+    store.setState(({ handMode }) => ({ handMode: !handMode }));
   });
 
   zoomIn.addEventListener('click', () => scene.zoomBy(0.86));

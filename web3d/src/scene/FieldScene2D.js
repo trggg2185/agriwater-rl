@@ -134,7 +134,7 @@ export function createFieldScene(root, store) {
   }
 
   function startDrag(event) {
-    if ((!state.handMode && event.pointerType !== 'mouse') || !event.isPrimary || event.button !== 0) return;
+    if (!state.handMode || !event.isPrimary || event.button !== 0) return;
     goal = view;
     drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
     root.setPointerCapture(event.pointerId);
@@ -169,7 +169,7 @@ export function createFieldScene(root, store) {
   root.addEventListener('pointermove', moveDrag, options);
   root.addEventListener('lostpointercapture', endDrag, options);
   root.addEventListener('wheel', (event) => {
-    if (drag || !event.deltaY) return;
+    if (!state.handMode || drag || !event.deltaY) return;
     event.preventDefault();
     const box = root.getBoundingClientRect();
     const units = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? height : 1;
@@ -181,12 +181,16 @@ export function createFieldScene(root, store) {
       ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1],
     }[event.key];
     if (event.key === 'Escape') reset();
-    else if (move) moveCamera(goal.x + move[0] * 28, goal.y + move[1] * 28);
+    else if (move && state.handMode) moveCamera(goal.x + move[0] * 28, goal.y + move[1] * 28);
     else return;
     event.preventDefault();
   }, options);
 
   const unsubscribe = store.subscribe((next) => {
+    if (state.handMode && !next.handMode) {
+      goal = view;
+      if (drag && root.hasPointerCapture(drag.id)) root.releasePointerCapture(drag.id);
+    }
     state = next;
     const nextCrop = state.meta.crops.find(({ code }) => code === state.crop)?.key ?? 'rice';
     const record = state.series[state.day - 1];

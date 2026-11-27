@@ -170,8 +170,8 @@ button:disabled { opacity: .45; }
   height: clamp(320px, 53.3vh, 610px);
   background: linear-gradient(137deg, #aabdc8, var(--field-wash) 44%, #f3f7f7 83%);
 }
-#scene-root { cursor: grab; touch-action: pan-y; }
-#scene-root.is-pannable { touch-action: none; }
+#scene-root { touch-action: pan-y; }
+#scene-root.is-pannable { cursor: grab; touch-action: none; }
 #scene-root.is-dragging { cursor: grabbing; }
 #scene-root:focus-visible { outline-offset: -3px; }
 .hotspots { position: absolute; inset: 0; }

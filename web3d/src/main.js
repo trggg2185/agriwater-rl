@@ -91,6 +91,7 @@ const store = createStore({
   pumpOn: true,
   openHeads: [],
   previewAction: null,
+  upcomingWeather: null,
   simulationBusy: false,
 });
 
@@ -115,6 +116,7 @@ async function applyIrrigation(liters, automatic) {
       series: next.series,
       day: next.day,
       source: next.source,
+      upcomingWeather: payload.upcomingWeather ?? null,
       previewAction: null,
       simulationBusy: false,
       ...(finished ? { playing: false } : {}),
@@ -170,6 +172,7 @@ const actions = {
       mode: liveSessionId ? 'live' : 'replay',
       day: liveSessionId || !keepDay ? next.day : Math.min(state.day, next.series.length),
       appliedProfile: profile,
+      upcomingWeather: null,
       simulationBusy: false,
       playing: false,
       previewAction: null,
@@ -179,7 +182,21 @@ const actions = {
   async applyProfile(profile) {
     await actions.regenerate({ scenario: profile.scenario, seed: profile.seed, crop: profile.crop, profile });
     store.setState({ view: 'monitor', activeTab: 'overview' });
-    notify('Đã khởi tạo mô phỏng với cấu hình đã lưu.');
+    notify('Đã mở phiên mô phỏng mới.');
+  },
+
+  async setWeather(mode) {
+    const state = store.getState();
+    if (!liveSessionId || state.simulationBusy || state.day !== state.series.length) return;
+    const token = regenerateToken;
+    store.setState({ simulationBusy: true });
+    try {
+      const payload = await api.setSessionWeather({ sessionId: liveSessionId, day: state.day + 1, mode });
+      if (token !== regenerateToken) return;
+      store.setState({ upcomingWeather: payload.upcomingWeather });
+    } finally {
+      if (token === regenerateToken) store.setState({ simulationBusy: false });
+    }
   },
 
   selectIrrigation(liters) {

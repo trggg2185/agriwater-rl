@@ -28,7 +28,7 @@ export function mountApp(root, store, actions, scene) {
     parts.push(...components);
   }
   mount('.workspace-heading', ViewTitle(store));
-  const hud = FieldHud(store);
+  const hud = FieldHud(store, appActions);
   mount(
     '.field__viewport',
     hud,

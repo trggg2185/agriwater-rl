@@ -73,6 +73,13 @@ export function step({ sessionId, action, automatic = false }, options = {}) {
   });
 }
 
+export function setSessionWeather({ sessionId, day, mode }) {
+  return request('/weather', {
+    method: 'POST',
+    body: { session_id: sessionId, day, mode },
+  });
+}
+
 /**
  * Lít (0…25) → chỉ số action 0–5. UI nói bằng lít, backend nói bằng chỉ số.
  * Không khớp mức nào thì trả 0 (ngày nghỉ tưới) thay vì đoán.

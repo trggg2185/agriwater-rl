@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { alignRuns, summarize, trainingLog, validateWeather } from '../src/data/research.js';
+import { alignRuns, summarize, switchScenario, trainingLog, validateWeather } from '../src/data/research.js';
 
 const weather = { temperature: 29, rainProbability: .5, rainForecastMm: 8, actualRainMm: 2 };
 const first = {
@@ -35,4 +35,16 @@ it('kiểm tra số chiều thời tiết và đọc nhật ký Reward/Loss có 
   expect(trainingLog('episode,reward,loss\n1,-92,\n2,100,0.4')).toEqual([
     { day: 1, reward: -92, loss: null }, { day: 2, reward: 100, loss: .4 },
   ]);
+});
+
+it('đổi kịch bản loại bỏ thời tiết cũ và giữ thiết lập đất, cây, seed', () => {
+  const profile = { scenario: 'dry', crop: 1, seed: 42, weather: [{}], initialState: {
+    soil_moisture: .45, growth_stage: 1, last_irrigation_liters: 5,
+    temperature: 40, rain_probability: .01, rain_forecast_mm: 0, actual_rain_mm: 0,
+  } };
+  expect(switchScenario(profile, 'stormy')).toEqual({
+    scenario: 'stormy', crop: 1, seed: 42, weather: undefined,
+    initialState: { soil_moisture: .45, growth_stage: 1, last_irrigation_liters: 5 },
+  });
+  expect(switchScenario(profile, 'dry')).toBe(profile);
 });

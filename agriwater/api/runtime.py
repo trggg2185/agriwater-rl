@@ -195,7 +195,7 @@ def open_environment(
     options = dict(initial or {})
     conditions = {
         key: options.pop(key)
-        for key in ("temperature", "rain_probability", "rain_forecast_mm")
+        for key in ("temperature", "rain_probability", "rain_forecast_mm", "actual_rain_mm")
         if key in options
     }
     if conditions and weather:

@@ -64,7 +64,7 @@ export function Dashboard({ store, actions }) {
             <div className="field__scene relative">
               <div className="field__viewport overflow-hidden">
                 <div id="scene-root" className="absolute inset-0" role="group" tabIndex={0}
-                  aria-label="Máy quay ruộng. Dùng phím mũi tên để di chuyển, con lăn để thu phóng và Escape để đặt lại" />
+                  aria-label="Máy quay ruộng. Bật nút bàn tay để kéo, dùng phím mũi tên hoặc con lăn. Nhấn Escape để đặt lại" />
               </div>
               <div className="field__telemetry" />
             </div>

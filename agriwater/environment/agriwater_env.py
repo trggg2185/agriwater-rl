@@ -18,12 +18,17 @@ from agriwater.environment.observation import (
     LAST_IRRIGATION,
     OBSERVATION_SIZE,
     RAIN_FORECAST_MAX_MM,
+    RAIN_FORECAST_MM,
+    RAIN_PROBABILITY,
     SOIL_MOISTURE,
+    TEMPERATURE,
     TEMPERATURE_MAX_C,
     TEMPERATURE_MIN_C,
     build_observation,
     decode_code,
     encode_irrigation,
+    encode_rain_forecast,
+    encode_temperature,
 )
 from agriwater.environment.weather import WeatherDay, generate_weather
 
@@ -192,18 +197,7 @@ class AgriWaterEnv(gym.Env):
         weather = options.get("weather")
         if weather is None:
             weather = generate_weather(self.scenario, self.max_days + 1, seed=weather_seed)
-        if not isinstance(weather, list) or len(weather) != self.max_days + 1:
-            raise ValueError("weather must have max_days + 1 records")
-        for record in weather:
-            if not isinstance(record, dict):
-                raise ValueError("Each weather record must be a mapping")
-            for key, lo, hi in (
-                ("temperature", TEMPERATURE_MIN_C, TEMPERATURE_MAX_C),
-                ("rain_probability", 0, 1),
-                ("rain_forecast_mm", 0, RAIN_FORECAST_MAX_MM),
-                ("actual_rain_mm", 0, RAIN_FORECAST_MAX_MM),
-            ):
-                _number(record.get(key), key, lo, hi)
+        self._validate_weather(weather, self.max_days + 1)
         self._weather = deepcopy(weather)
         # b/reset: Đặt đồng hồ về t = 0 và lấy thời tiết của ngày đầu.
         self.day, self._initial_stage = 0, stage
@@ -223,6 +217,38 @@ class AgriWaterEnv(gym.Env):
         self._done = False
         # b/reset: Gymnasium trả cặp (observation, info) trước hành động đầu tiên.
         return self._state.copy(), self._info(self._state, 0, 0.0, 0.0, {})
+
+    @staticmethod
+    def _validate_weather(weather: list[WeatherDay], expected: int) -> None:
+        if not isinstance(weather, list) or len(weather) != expected:
+            raise ValueError(f"weather must have {expected} records")
+        for record in weather:
+            if not isinstance(record, dict):
+                raise ValueError("Each weather record must be a mapping")
+            for key, lo, hi in (
+                ("temperature", TEMPERATURE_MIN_C, TEMPERATURE_MAX_C),
+                ("rain_probability", 0, 1),
+                ("rain_forecast_mm", 0, RAIN_FORECAST_MAX_MM),
+                ("actual_rain_mm", 0, RAIN_FORECAST_MAX_MM),
+            ):
+                _number(record.get(key), key, lo, hi)
+
+    def replace_upcoming_weather(self, weather: list[WeatherDay]) -> np.ndarray:
+        """Replace future weather and refresh the observation before the next action."""
+        if self._done:
+            raise gym.error.ResetNeeded("Call reset before setting weather")
+        self._validate_weather(weather, self.max_days - self.day + 1)
+        first = weather[0]
+        state = self._state.copy()
+        state[TEMPERATURE] = encode_temperature(first["temperature"])
+        state[RAIN_PROBABILITY] = first["rain_probability"]
+        state[RAIN_FORECAST_MM] = encode_rain_forecast(first["rain_forecast_mm"])
+        self._weather[self.day:] = deepcopy(weather)
+        self._state = state
+        return state.copy()
+
+    def upcoming_weather(self) -> WeatherDay:
+        return self._weather[self.day].copy()
 
     def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         """b) step — Chạy một ngày mô phỏng với hành động của agent."""

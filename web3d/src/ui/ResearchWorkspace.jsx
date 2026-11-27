@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as api from '../data/apiClient.js';
 import { normalizeEpisode } from '../data/replay.js';
-import { alignRuns, importRun, observationFields, runRow, STRATEGIES, summarize, trainingLog, validateProfile, validateWeather } from '../data/research.js';
+import { actualRainField, alignRuns, importRun, observationFields, runRow, STRATEGIES, summarize, switchScenario, trainingLog, validateProfile, validateWeather } from '../data/research.js';
 import { downloadComparisonCsv, downloadReportPdf, downloadResultCsv, downloadTrainingCsv } from '../data/reportExport.js';
 import { formatNumber } from '../utils/math.js';
 import { chartCanvas } from './charts/ChartCanvas.js';
@@ -48,8 +48,7 @@ function defaultProfile(state) {
   const first = state.series[0];
   return {
     crop: state.crop, scenario: state.scenario, seed: state.seed, pumpFlow: 25,
-    initialState: { growth_stage: first.stage, soil_moisture: first.previousMoisture,
-      temperature: first.temperature },
+    initialState: { growth_stage: first.stage, soil_moisture: first.previousMoisture },
   };
 }
 
@@ -101,7 +100,7 @@ export function Environment({ profile, save, state, apply }) {
       validateProfile(draft, state.meta);
       save(draft);
       if (start) await apply(draft);
-      else setMessage('Đã lưu cấu hình môi trường thành công.');
+      else setMessage('Đã lưu thiết lập. Bấm Áp dụng và chạy mô phỏng để mở phiên mới.');
     } catch (issue) {
       setError(issue.message);
     } finally {
@@ -111,20 +110,22 @@ export function Environment({ profile, save, state, apply }) {
   return <Section title="Thiết lập thông số môi trường">
     <form onSubmit={submit}>
       <div className="study-grid">
+        <label>Kịch bản thời tiết<select value={draft.scenario} onChange={(e) => {
+          setDraft(switchScenario(draft, e.target.value));
+          setMessage(''); setError('');
+        }}>
+          {state.meta.scenarios.map(({ key, label }) => <option key={key} value={key}>{label}</option>)}
+        </select></label>
         <label>Giống cây<select value={draft.crop} onChange={(e) => setValue('crop', Number(e.target.value))}>
           {state.meta.crops.map((crop) => <option key={crop.code} value={crop.code}>{crop.label}</option>)}
         </select></label>
         <label>Giai đoạn sinh trưởng<select value={draft.initialState.growth_stage} onChange={(e) => setInitial('growth_stage', Number(e.target.value))}>
           {state.meta.stages.map((name, index) => <option key={name} value={index}>{name}</option>)}
         </select></label>
-        {observationFields.map(({ key, label, min, max, required }) =>
+        {[...observationFields, actualRainField].map(({ key, label, min, max, required }) =>
           <label key={key}>{label}<input type="number" step="any" min={min} max={max} required={required}
+            placeholder={key !== 'last_irrigation_liters' && key !== 'soil_moisture' ? (draft.weather ? 'Theo tệp thời tiết' : 'Theo kịch bản') : undefined}
             value={draft.initialState[key] ?? ''} onChange={(e) => setInitial(key, readNumber(e.target))} /></label>)}
-        <label>Kịch bản thời tiết<select value={draft.scenario} onChange={(e) => {
-          setDraft({ ...draft, scenario: e.target.value, weather: undefined }); setMessage(''); setError('');
-        }}>
-          {state.meta.scenarios.map(({ key, label }) => <option key={key} value={key}>{label}</option>)}
-        </select></label>
         <label>Seed<input type="number" min="0" max="4294967295" step="1" required
           value={draft.seed ?? ''} onChange={(e) => setValue('seed', readNumber(e.target))} /></label>
         <label>Lưu lượng bơm (L/phút)<input type="number" step="any" min=".001"
@@ -133,6 +134,8 @@ export function Environment({ profile, save, state, apply }) {
           value={draft.pumpPowerKw ?? ''} onChange={(e) => setValue('pumpPowerKw', readNumber(e.target))} /></label>
         <label>Tải lên kịch bản<input type="file" accept=".json,application/json" onChange={importProfile} /></label>
       </div>
+      <p className="study-status">Các giá trị thời tiết nhập tay chỉ áp dụng cho ngày đầu.
+        Để trống để lấy dữ liệu theo kịch bản hoặc tệp đã nạp. Bấm Áp dụng và chạy mô phỏng để bắt đầu phiên mới.</p>
       {draft.weather && <p className="study-status">Đã nạp {draft.weather.length} bản ghi thời tiết.</p>}
       <Status message={error} error />
       <Status message={message} />
