@@ -34,21 +34,21 @@ import { createStore } from './state/store.js';
 import { mountApp } from './ui/App.js';
 import { Dashboard } from './ui/Dashboard.jsx';
 
-const DEFAULT_SESSION = { scenario: 'dry', seed: 42, crop: 1 };
+const DEFAULT_SESSION = { scenario: 'dry', seed: 42, crop: 1, policy: 'baseline' };
 const DEFAULT_OPEN_DAY = 18;
 const previewMode = new URLSearchParams(window.location.search).get('preview') === '1';
 
 /** Ván đang chạy trên server; `null` = không ở chế độ live. */
 let notify = () => {};
 
-async function openSession({ scenario, seed, crop, startDay = 1, offline = false, profile }) {
+async function openSession({ scenario, seed, crop, policy = 'baseline', startDay = 1, offline = false, profile }) {
   if (!offline) {
     try {
-      const payload = await api.createSession({ scenario, seed, crop, startDay, initialState: profile?.initialState, weather: profile?.weather });
-      console.info(`[agriwater] backend live: ${scenario} · seed ${seed}`);
-      return { ...normalizeEpisode(payload, { dataSource: 'api' }), sessionId: payload.session_id };
+      const payload = await api.createSession({ scenario, seed, crop, policy, startDay, initialState: profile?.initialState, weather: profile?.weather });
+      console.info(`[agriwater] backend live: ${scenario} · seed ${seed} · ${policy}`);
+      return { ...normalizeEpisode(payload, { dataSource: 'api' }), sessionId: payload.session_id, policy };
     } catch (error) {
-      if (profile) throw error;
+      if (profile || policy !== 'baseline') throw error;
       console.info(`[agriwater] không có backend FastAPI (${error.message}) — thử episode JSON`);
     }
   }
@@ -77,6 +77,7 @@ let liveSessionId = session.sessionId ?? null;
 
 const store = createStore({
   ...session,
+  policy: session.policy ?? 'baseline',
   activeTab: 'overview',
   day: session.dataSource === 'api' ? session.day : Math.min(DEFAULT_OPEN_DAY, session.series.length),
   view: 'monitor',
@@ -144,12 +145,13 @@ const actions = {
     const scenario = patch.scenario ?? state.scenario;
     const seed = patch.seed ?? state.seed;
     const crop = patch.crop ?? state.crop;
+    const policy = patch.policy ?? state.policy ?? 'baseline';
     const token = (regenerateToken += 1);
     store.setState({ simulationBusy: true, playing: false, previewAction: null });
     const startDay = keepDay ? state.day : 1;
     let next;
     try {
-      next = await openSession({ scenario, seed, crop, startDay, offline, profile });
+      next = await openSession({ scenario, seed, crop, policy, startDay, offline, profile });
     } catch (error) {
       if (token === regenerateToken) store.setState({ simulationBusy: false });
       if (patch.profile) throw error;
@@ -165,6 +167,7 @@ const actions = {
       scenario,
       seed,
       crop,
+      policy: next.policy ?? policy,
       source: next.source,
       dataSource: next.dataSource,
       mode: liveSessionId ? 'live' : 'replay',
@@ -174,6 +177,14 @@ const actions = {
       playing: false,
       previewAction: null,
     });
+  },
+
+  async selectPolicy(policy) {
+    const label = policy === 'q_learning' ? 'Q-Learning (ε = 0)' : 'Rule-based Baseline';
+    await actions.regenerate({ policy }, { keepDay: false });
+    if (store.getState().policy === policy) {
+      notify(`Đã chuyển chính sách sang ${label}.`);
+    }
   },
 
   async applyProfile(profile) {

@@ -95,6 +95,7 @@ class SessionRequest(BaseModel):
     scenario: Literal["dry", "stormy", "random"] = "dry"
     seed: int = Field(default=42, ge=0, le=2**32 - 1)
     crop: int = Field(default=0, ge=0, le=3)
+    policy: Literal["baseline", "q_learning"] = "baseline"
     #: Ngày đầu tiên trôi qua ngay khi mở ván, để giao diện luôn có dữ liệu để vẽ.
     initial_action: int | None = Field(default=None, ge=0, le=5)
     start_day: int = Field(default=1, ge=1)
@@ -173,6 +174,7 @@ def meta() -> dict[str, Any]:
         "meta": runtime.build_meta(config),
         "source": {"kind": "api", "config": config_source},
         "scenarios": [{"key": key} for key in runtime.SCENARIOS],
+        "availablePolicies": runtime.available_policies(),
     }
 
 
@@ -183,6 +185,12 @@ def create_session(payload: SessionRequest) -> dict[str, Any]:
         config, config_source = runtime.resolve_config()
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    if payload.policy == "q_learning" and runtime.get_q_agent() is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Chưa có mô hình Q-Learning (models/q_table.npz). Hãy huấn luyện trước.",
+        )
 
     if payload.start_day > int(config["max_days"]):
         raise HTTPException(status_code=422, detail="Ngày bắt đầu vượt quá chu kỳ mô phỏng")
@@ -206,14 +214,19 @@ def create_session(payload: SessionRequest) -> dict[str, Any]:
         seed=payload.seed,
         crop=payload.crop,
         obs=obs,
+        policy=payload.policy,
     )
     if payload.initial_action is not None:
         action = payload.initial_action
     else:
-        action = runtime.baseline_action(session.obs) if payload.start_day > 1 else 0
+        action = (
+            runtime.select_policy_action(session.policy, session.obs)
+            if payload.start_day > 1
+            else 0
+        )
     _step(session, action)
     while len(session.series) < payload.start_day and not session.done:
-        _step(session, runtime.baseline_action(session.obs))
+        _step(session, runtime.select_policy_action(session.policy, session.obs))
 
     session_id = uuid.uuid4().hex
     with _SESSIONS_LOCK:
@@ -223,10 +236,17 @@ def create_session(payload: SessionRequest) -> dict[str, Any]:
 
 @app.post("/api/step")
 def step(payload: StepRequest) -> dict[str, Any]:
-    """Chạy một ngày với mức tưới chỉ định hoặc theo chính sách baseline."""
+    """Chạy một ngày với mức tưới chỉ định hoặc theo chính sách tự động của session."""
     session = _lookup(payload.session_id)
     with session.lock:
-        action = runtime.baseline_action(session.obs) if payload.automatic else payload.action
+        try:
+            action = (
+                runtime.select_policy_action(session.policy, session.obs)
+                if payload.automatic
+                else payload.action
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         _step(session, action)
         body = _payload(session)
     return {"session_id": payload.session_id, **body}

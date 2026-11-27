@@ -9,10 +9,12 @@ luôn cùng một định dạng — đổi một chỗ là cả hai đổi theo
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from agriwater.agents.q_agent import QLearningAgent
 from agriwater.config import load_config
 from agriwater.environment.agriwater_env import AgriWaterEnv
 from agriwater.environment.observation import (
@@ -39,11 +41,53 @@ BASELINE_THRESHOLD = 0.30
 BASELINE_ACTION = 4
 
 SCENARIOS = ("dry", "stormy", "random")
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_Q_TABLE_PATH = ROOT / "models" / "q_table.npz"
+
+_Q_AGENT_CACHE: dict[tuple[str, int], QLearningAgent] = {}
 
 
 def baseline_action(observation: np.ndarray) -> int:
     """Chọn mức tưới của baseline theo độ ẩm trước bước mô phỏng."""
     return BASELINE_ACTION if decode_observation(observation)["moisture"] < BASELINE_THRESHOLD else 0
+
+
+def get_q_agent(q_table_path: Path | None = None) -> QLearningAgent | None:
+    """Nạp Q-table đã huấn luyện (ε = 0) có cache theo mtime; trả None nếu chưa có file."""
+    path = Path(q_table_path) if q_table_path is not None else DEFAULT_Q_TABLE_PATH
+    if not path.exists():
+        return None
+    key = (str(path.resolve()), path.stat().st_mtime_ns)
+    agent = _Q_AGENT_CACHE.get(key)
+    if agent is None:
+        agent = QLearningAgent.load(path, seed=0)
+        _Q_AGENT_CACHE.clear()
+        _Q_AGENT_CACHE[key] = agent
+    return agent
+
+
+def available_policies(q_table_path: Path | None = None) -> list[str]:
+    """Danh sách chính sách tự động sẵn sàng chạy trên backend."""
+    policies = ["baseline"]
+    if get_q_agent(q_table_path) is not None:
+        policies.append("q_learning")
+    return policies
+
+
+def select_policy_action(
+    policy: str,
+    observation: np.ndarray,
+    q_table_path: Path | None = None,
+) -> int:
+    """Chọn hành động tự động theo chính sách của session (mặc định baseline)."""
+    if policy == "q_learning":
+        agent = get_q_agent(q_table_path)
+        if agent is None:
+            raise RuntimeError(
+                "Chưa tìm thấy Q-table (models/q_table.npz). Hãy chạy `python -m agriwater.training.train` trước."
+            )
+        return agent.select_action(observation, training=False)
+    return baseline_action(observation)
 
 
 def _round(value: Any, digits: int = 6) -> float:

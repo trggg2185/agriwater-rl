@@ -52,13 +52,13 @@ export async function isAvailable(options = {}) {
   }
 }
 
-/** Mở ván mới, có thể chạy chính sách baseline đến ngày bắt đầu mong muốn. */
-export function createSession({ scenario, seed, crop, initialAction, startDay = 1, initialState, weather }, options = {}) {
+/** Mở ván mới, có thể chạy chính sách tự động (baseline / q_learning) đến ngày bắt đầu mong muốn. */
+export function createSession({ scenario, seed, crop, policy = 'baseline', initialAction, startDay = 1, initialState, weather }, options = {}) {
   return request('/session', {
     ...options,
     method: 'POST',
     body: {
-      scenario, seed, crop, initial_action: initialAction, start_day: startDay,
+      scenario, seed, crop, policy, initial_action: initialAction, start_day: startDay,
       initial_state: initialState, weather,
     },
   });

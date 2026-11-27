@@ -187,6 +187,7 @@ export function Training({ profile, addRun }) {
 
 export function Experiment({ profile, state, addRun }) {
   const [file, setFile] = useState(null);
+  const [policy, setPolicy] = useState('baseline');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -199,12 +200,12 @@ export function Experiment({ profile, state, addRun }) {
       const weather = validateWeather(await readJson(file), state.meta.maxDays);
       const chosen = profile ?? { crop: state.crop, scenario: state.scenario, seed: state.seed };
       const payload = await api.createSession({
-        ...chosen, weather, startDay: state.meta.maxDays,
+        ...chosen, policy, weather, startDay: state.meta.maxDays,
       }, { timeoutMs: 15000 });
       const episode = normalizeEpisode(payload);
-      const result = runRow(episode, 'baseline', chosen, file.name);
+      const result = runRow(episode, policy, chosen, file.name);
       addRun(result);
-      setMessage(`Thử nghiệm Baseline hoàn tất. Đã lưu ${result.series.length} bước để xem báo cáo.`);
+      setMessage(`Thử nghiệm ${STRATEGIES[policy]} hoàn tất. Đã lưu ${result.series.length} bước để xem báo cáo.`);
     } catch (issue) {
       setError(issue.message);
     } finally {
@@ -215,9 +216,10 @@ export function Experiment({ profile, state, addRun }) {
     <form onSubmit={run}>
       <div className="study-grid">
         <label>Nguồn kịch bản thời tiết<input type="file" accept=".json,application/json" required disabled={busy} onChange={(e) => setFile(e.target.files[0])} /></label>
-        <label>Mô hình<select defaultValue="baseline" disabled={busy}>
+        <label>Mô hình<select value={policy} disabled={busy} onChange={(e) => setPolicy(e.target.value)}>
           <option value="baseline">{STRATEGIES.baseline}</option>
-          <option disabled>Q-Learning · chưa có mô hình</option><option disabled>DQN · chưa có mô hình</option>
+          <option value="q_learning">{STRATEGIES.q_learning} (ε = 0)</option>
+          <option disabled>DQN · chưa có mô hình</option>
         </select></label>
       </div>
       <p className="study-status">JSON gồm {state.meta.maxDays + 1} dòng có các trường <code>temperature</code>, <code>rain_probability</code>, <code>rain_forecast_mm</code> và <code>actual_rain_mm</code>.</p>
