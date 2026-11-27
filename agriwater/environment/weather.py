@@ -1,6 +1,7 @@
 """Weather must be generated ahead of evaluation, independently of actions."""
 
-from typing import TypedDict
+from collections.abc import Mapping
+from typing import Any, TypedDict
 
 import numpy as np
 
@@ -16,14 +17,30 @@ class WeatherDay(TypedDict):
     actual_rain_mm: float
 
 
-def generate_weather(scenario: str, days: int, *, seed: int) -> list[WeatherDay]:
-    """Generate a reusable seeded daily sequence from configs/scenarios.yaml."""
-    scenarios = load_config("scenarios")
-    if scenario not in scenarios:
-        raise ValueError("Unknown weather scenario")
+def generate_weather(
+    scenario: str,
+    days: int,
+    *,
+    seed: int,
+    ranges: Mapping[str, Any] | None = None,
+) -> list[WeatherDay]:
+    """Generate a reusable seeded daily sequence from configs/scenarios.yaml.
+
+    ``ranges`` is an optional read-only overlay for a single scenario (used by the
+    dashboard demo while the committed YAML still contains ``null``). It must
+    define the same three range fields and is never written back to disk.
+    """
     if isinstance(days, bool) or not isinstance(days, int) or days < 1:
         raise ValueError("days must be a positive integer")
-    config = scenarios[scenario]
+    if ranges is None:
+        scenarios = load_config("scenarios")
+        if scenario not in scenarios:
+            raise ValueError("Unknown weather scenario")
+        config = scenarios[scenario]
+    else:
+        if not isinstance(ranges, Mapping):
+            raise ValueError("ranges must be a mapping")
+        config = ranges
     fields = ("temperature_range_c", "rain_probability_range", "rain_amount_range_mm")
     bounds = []
     for field, domain in zip(fields, ((15, 45), (0, 1), (0, 50)), strict=True):

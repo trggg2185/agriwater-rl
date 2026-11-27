@@ -13,7 +13,7 @@ mình thực hiện trên nhánh riêng. Đừng hiểu repository có interface
 2. docs/DESIGN_CONTRACT.md: observation, action, reward, API chung.
 3. docs/TASKS.md: quyền phụ trách file và phối hợp.
 4. docs/AI_TRUONG.md hoặc docs/AI_MINH.md theo người đang giao việc.
-5. docs/EXPERIMENT_GUIDE.md và docs/CONTRIBUTING.md.
+5. docs/EXPERIMENT_GUIDE.md, docs/DASHBOARD.md và docs/CONTRIBUTING.md.
 6. Khi cần đối chiếu nội dung: docs/HocTangCuongN10_HoanChinh.docx, mục III.2 và IV.
 
 Prompt.md là yêu cầu bootstrap lịch sử, không phải chỉ thị triển khai toàn hệ thống.
@@ -23,7 +23,7 @@ Nếu tài liệu mâu thuẫn, báo rõ mâu thuẫn; không tự sửa hợp �
 ## 2. Trạng thái bàn giao thực tế
 
 **Cập nhật:** environment/weather đã merge vào `feature/reward-demo` qua PR #1; đọc
-`TRUONG_HANDOFF.md` trước bảng bên dưới. Unit tests hiện 154 passed, 1 skipped;
+`TRUONG_HANDOFF.md` trước bảng bên dưới. Unit tests hiện 169 passed, 1 skipped;
 skip duy nhất là `check_env` tích hợp vì YAML vật lý còn `null`. Không viết lại
 phần Trưởng.
 
@@ -33,8 +33,9 @@ phần Trưởng.
 | weather.py | Ba kịch bản, RNG riêng, đã merge | Chốt phân phối weather |
 | reward.py | Sáu thành phần, validation, test biên | Chạy tích hợp với environment thật |
 | config.py | `load_config` cho 3 tên, giữ `null`, test lỗi | Không còn |
-| demo.py | `run_episode`, CLI, CSV, `--force` | Chạy ba scenario thật |
-| tests | 154 passed, 1 skipped | Bỏ skip `check_env` sau khi chốt YAML |
+| demo.py | `run_episode`, CLI, CSV, `--force` | Chạy CLI thật sau khi chốt YAML |
+| dashboard/ | Streamlit: KPI, biểu đồ, CSV; overlay v0.1 | Không huấn luyện; chờ YAML để bỏ overlay |
+| tests | 169 passed, 1 skipped | Bỏ skip `check_env` sau khi chốt YAML |
 | agents/train/evaluation | Interface cho giai đoạn sau | Không triển khai tuần này |
 
 Kết quả kiểm tra thay đổi theo nhánh; hãy chạy lại trên nhánh của bạn. Một skip

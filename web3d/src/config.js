@@ -8,10 +8,10 @@
 
 export const UI = {
   colors: {
-    chartBlue: '#5ea8f0',
-    chartBlueSoft: 'rgba(94, 168, 240, .55)',
-    areaTop: 'rgba(94, 168, 240, .30)',
-    areaBottom: 'rgba(94, 168, 240, 0)',
+    chartBlue: '#678294',
+    chartBlueSoft: 'rgba(103, 130, 148, .55)',
+    areaTop: 'rgba(103, 130, 148, .32)',
+    areaBottom: 'rgba(103, 130, 148, .04)',
     band: 'rgba(59, 130, 246, .055)',
     grid: 'rgba(29, 38, 33, .09)',
     gridStrong: 'rgba(29, 38, 33, .16)',
@@ -58,11 +58,12 @@ export const UI = {
 
   speeds: [1, 2, 5, 10],
 
-  /** Nhãn hiển thị của 3 mục điều hướng. */
   views: [
-    { id: 'monitor', label: 'Giám sát cây trồng', icon: 'leaf' },
-    { id: 'device', label: 'Điều khiển thiết bị', icon: 'monitor' },
-    { id: 'smart', label: 'Tưới thông minh', icon: 'spark' },
+    { id: 'environment', label: 'Thiết lập thông số môi trường', shortLabel: 'Thiết lập' },
+    { id: 'training', label: 'Huấn luyện thuật toán RL', shortLabel: 'Huấn luyện' },
+    { id: 'experiment', label: 'Thử nghiệm đa kịch bản', shortLabel: 'Thử nghiệm' },
+    { id: 'compare', label: 'So sánh chiến lược', shortLabel: 'So sánh' },
+    { id: 'monitor', label: 'Báo cáo & Dashboard', shortLabel: 'Báo cáo' },
   ],
 };
 
@@ -71,25 +72,14 @@ export const UI = {
  * Chỉ là hình học/trình bày — không chứa luật mô phỏng.
  */
 export const SCENE = {
-  fog: { color: 0x2f3634, near: 34, far: 104 },
-
-  /**
-   * Không dùng lưới ô: chỉ một sân vỉa hè rộng bằng thửa × apronScale,
-   * nên xung quanh thửa không còn ô trống nào.
-   */
-  /** Chỉ một sân vỉa hè sát thửa, không có lưới ô trống xung quanh. */
-  grid: { apronScale: 1, thickness: 0.32 },
+  fog: { color: 0xe4edf2, near: 35, far: 105 },
 
   plot: {
     width: 11.6,
     depth: 7.0,
-    trayHeight: 0.62,
-    rimThickness: 0.4,
     soilInset: 0.26,
     ridges: 8,
     ridgeHeight: 0.12,
-    /** Số đầu phun ở 4 góc cũ — bước 2 thay bằng SCENE.sprinklers.headCount. */
-    sprinklerCount: 4,
   },
 
   /**
@@ -97,8 +87,8 @@ export const SCENE = {
    * Số vòi mở, lưu lượng, mô hình m_i do utils/irrigationZones.js tính từ meta.
    */
   sprinklers: {
-    /** Số đầu phun = số khu dải (2…4). */
-    headCount: 3,
+    /** Số đầu phun = số khu dải (2…6). */
+    headCount: 6,
     /** "centerLine": các đầu nằm trên trục dọc giữa thửa, mỗi khu một dải. */
     headLayout: 'centerLine',
     /** Cung mỗi quạt (độ). Mỗi đầu có HAI quạt đối xứng qua trục dọc. */
@@ -128,11 +118,10 @@ export const SCENE = {
     fov: 26,
     azimuth: 36,
     polar: 42,
-    /** Dịch target để thửa chính nằm nửa trái-giữa khung hình. */
-    shiftX: 5.4,
-    shiftY: 1.9,
-    shiftZ: 0.4,
-    distanceFactor: 2.22,
+    shiftX: -0.35,
+    shiftY: 0.15,
+    shiftZ: 0.65,
+    distanceFactor: 2.47,
     /** Cho phép lại gần để soi luống và lùi ra để thấy toàn thửa. */
     minDistanceFactor: 0.5,
     maxDistanceFactor: 2.0,
@@ -144,9 +133,9 @@ export const SCENE = {
   },
 
   light: {
-    hemiSky: 0xcfe3d6,
-    hemiGround: 0x2a2420,
-    hemiIntensity: 0.55,
+    hemiSky: 0xe8efdb,
+    hemiGround: 0x60513e,
+    hemiIntensity: 0.78,
     sunColor: 0xfff0d8,
     sunIntensity: 1.6,
     sunPosition: [-11, 17, -9],

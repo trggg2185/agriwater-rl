@@ -6,9 +6,10 @@ feature/reward-demo. Có thể bắt đầu loader/reward bằng dữ liệu m�
 
 ## Trạng thái
 
-Đã xong trên `feature/reward-demo`: loader, reward, demo và các test tương ứng.
-Environment/weather đã merge vào nhánh này qua PR #1. Còn chờ chốt giá trị YAML để
-chạy demo thật ba scenario, bỏ skip `check_env` và nghiệm thu tích hợp.
+Đã xong trên `feature/reward-demo`: loader, reward, demo, dashboard minh họa và các
+test tương ứng. Environment/weather đã merge vào nhánh này qua PR #1. Còn chờ chốt
+giá trị YAML để chạy CLI thật ba scenario, bỏ skip `check_env` và nghiệm thu tích hợp.
+Dashboard đã chạy được bằng overlay v0.1 trong bộ nhớ (xem `DASHBOARD.md`).
 
 ## Phạm vi sở hữu
 
@@ -60,7 +61,7 @@ Ví dụ test chuẩn (các giá trị ghi bằng đơn vị thực, phải chu�
 Thêm test từng penalty bật/tắt riêng, trước/sau mốc giai đoạn, tổng bằng tổng
 components, input không đổi, và input sai. Bỏ skip test reward khi đã triển khai.
 
-## Bước 3 — demo không học (đã triển khai, chờ tích hợp)
+## Bước 3 — demo không học (đã triển khai, CLI chờ YAML)
 
 Giữ run_episode(scenario="random",seed=42,action=None)->list[dict]. action=None
 lấy mẫu từ action_space với seed riêng; action 0..5 giữ cố định. Gọi reset, rồi
@@ -80,6 +81,16 @@ Test demo: cùng seed cho cùng records, fixed action giữ đúng mức, dừng
 một trong hai cờ True, CSV đúng số hàng/cột và xử lý file đã có. Unit test có thể
 dùng env giả trong tests, nhưng phải chạy demo thật với env của Trưởng trước nghiệm thu.
 
+## Bước 4 — dashboard minh họa (đã triển khai)
+
+`agriwater/dashboard/app.py` dùng Streamlit, không huấn luyện. Sidebar chọn scenario,
+seed, policy random/fixed; hiển thị KPI, biểu đồ độ ẩm/nước tưới/mưa/reward, bảng
+và tải CSV. Vì YAML còn `null`, dashboard ghép đề xuất v0.1 trong bộ nhớ qua
+`dashboard/demo_config.py`; không ghi `configs/*.yaml`. Ba API bổ sung tương thích
+ngược: `AgriWaterEnv(config=...)`, `generate_weather(ranges=...)`,
+`run_episode(config=..., weather=...)`. Test ở `tests/test_dashboard.py`; hướng dẫn
+ở `docs/DASHBOARD.md`. Khi YAML được chốt, bỏ overlay và chạy lại.
+
 ## Kiểm tra và bàn giao
 
 ```powershell
@@ -88,8 +99,9 @@ dùng env giả trong tests, nhưng phải chạy demo thật với env của Tr
 .venv/Scripts/python.exe -m ruff format --check agriwater tests
 ```
 
-Chạy `tests/test_config.py`, `tests/test_reward.py`, `tests/test_demo.py` và toàn
-suite. Trên `feature/reward-demo` hiện có 154 passed, 1 skipped (`check_env`).
+Chạy `tests/test_config.py`, `tests/test_reward.py`, `tests/test_demo.py`,
+`tests/test_dashboard.py` và toàn suite. Trên `feature/reward-demo` hiện có 168
+passed, 1 skipped (`check_env`).
 Sau tích hợp chạy lại toàn suite và ba scenario. Gửi Trưởng ví dụ reward chuẩn,
 kết quả biên float32, cách dùng loader, lệnh demo thật và các dependency còn thiếu.
 Không báo đã có kết quả học thuật RL.

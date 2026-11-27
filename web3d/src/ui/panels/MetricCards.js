@@ -18,17 +18,17 @@ function createCard({ label, unit, dark = false }) {
 
 export function createMetricCards() {
   const cards = [
-    createCard({ label: 'Hiện tại', unit: '%', dark: true }),
+    createCard({ label: 'Cuối ngày', unit: '%', dark: true }),
     createCard({ label: 'Nhiệt độ', unit: '°C' }),
     createCard({ label: 'Xác suất mưa', unit: '%' }),
     createCard({ label: 'Mưa dự báo', unit: 'mm' }),
     createCard({ label: 'Nước đã dùng', unit: 'L' }),
-    createCard({ label: 'Điểm thưởng', unit: '' }),
+    createCard({ label: 'Thưởng tích lũy', unit: '' }),
   ];
 
   const grid = el('div', { class: 'kpi-grid' }, cards.map((card) => card.node));
   const node = el('section', { class: 'section' }, [
-    el('h3', { class: 'section__title' }, 'Độ ẩm đất'),
+    el('h3', { class: 'section__title' }, 'Trạng thái mô phỏng'),
     grid,
   ]);
 

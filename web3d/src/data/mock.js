@@ -137,6 +137,7 @@ export function createMockSession({ scenario = 'dry', seed = 42, crop = 0 } = {}
       actualRainMm,
       reward,
       rewardParts: parts,
+      lastIrrigation,
       isIdeal: nextMoisture >= idealLow && nextMoisture <= idealHigh,
       isStressed: nextMoisture < 0.2 || nextMoisture > 0.85,
     });

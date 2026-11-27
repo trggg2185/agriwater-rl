@@ -8,6 +8,8 @@ import {
   flowPerOpen,
   headMaxRadius,
   headPositions,
+  irrigationBlock,
+  irrigationStatus,
   landingPoint,
   openCount,
   pickZones,
@@ -32,6 +34,31 @@ function seriesOf(entries) {
     moisture: entry.after,
   }));
 }
+
+it('đóng vòi hoặc tắt bơm ngừng cấp nước cho đúng vòi trên cảnh', () => {
+  const state = {
+    series: seriesOf([{ liters: 25, before: 0.3, after: 0.5 }]),
+    day: 1,
+    meta: { actionLiters: ACTION_LITERS },
+    openHeads: [true, false, true],
+  };
+  const active = irrigationStatus(state, 3);
+  expect(active.openMask).toEqual([true, false, true]);
+  expect(active.flows).toEqual([25 / 3, 0, 25 / 3]);
+  expect(irrigationStatus({ ...state, pumpOn: false }, 3).openMask).toEqual([false, false, false]);
+  expect(irrigationStatus({ ...state, previewAction: 0 }, 3).openMask).toEqual([false, false, false]);
+});
+
+it('chặn tưới trên lịch sử, khi bơm tắt hoặc khi mọi vòi đóng', () => {
+  const state = { dataSource: 'api', series: [{}, {}], day: 2, pumpOn: true };
+  expect(irrigationBlock(state, 15, 6)).toBe('');
+  expect(irrigationBlock({ ...state, day: 1 }, 15, 6)).toContain('lịch sử');
+  expect(irrigationBlock({ ...state, pumpOn: false }, 15, 6)).toContain('Bơm');
+  expect(irrigationBlock({ ...state, pumpOn: false }, 0, 6)).toBe('');
+  expect(irrigationBlock({ ...state, openHeads: Array(6).fill(false) }, 15, 6)).toContain('vòi');
+  expect(irrigationBlock({ ...state, openHeads: Array(5).fill(false) }, 15, 6)).toBe('');
+  expect(irrigationBlock({ ...state, dataSource: 'python', day: 1 }, 15, 6)).toBe('');
+});
 
 describe('vị trí đầu phun trên trục dọc giữa thửa', () => {
   for (const headCount of [2, 3, 4]) {
@@ -67,15 +94,15 @@ describe('vị trí đầu phun trên trục dọc giữa thửa', () => {
     expect(heads[2].x).toBeCloseTo(PLOT.width / 3, 10);
   });
 
-  it('headCount ngoài khoảng 2…4 được kẹp lại', () => {
+  it('headCount ngoài khoảng 2…6 được kẹp lại', () => {
     expect(clampHeadCount(1)).toBe(2);
-    expect(clampHeadCount(5)).toBe(4);
+    expect(clampHeadCount(7)).toBe(6);
     expect(clampHeadCount(undefined)).toBe(ZONE_DEFAULTS.headCount);
   });
 });
 
 describe('dải khu (vuông góc trục dọc)', () => {
-  for (const headCount of [2, 3, 4]) {
+  for (const headCount of [2, 3, 4, 6]) {
     it(`headCount = ${headCount}: dải phủ kín thửa, mỗi dải đúng một đầu`, () => {
       const heads = headPositions({ ...PLOT, headCount });
       const bands = heads.map((_, index) => bandBounds(index, { ...PLOT, headCount }));
@@ -100,7 +127,7 @@ describe('dải khu (vuông góc trục dọc)', () => {
 
 describe('trần tầm bắn R_max', () => {
   it('bằng khoảng cách tới góc xa nhất của dải × 1,05 và không vượt quá', () => {
-    for (const headCount of [2, 3, 4]) {
+    for (const headCount of [2, 3, 4, 6]) {
       headPositions({ ...PLOT, headCount }).forEach((head) => {
         const corner = bandCornerDistance(head.index, { ...PLOT, headCount });
         const radius = headMaxRadius(head.index, { ...PLOT, headCount });
@@ -234,8 +261,8 @@ describe('mô hình ước lượng phân bố theo khu', () => {
     });
   });
 
-  it('headCount 2 và 4 cũng bảo toàn trung bình', () => {
-    for (const headCount of [2, 4]) {
+  it('headCount 2, 4 và 6 cũng bảo toàn trung bình', () => {
+    for (const headCount of [2, 4, 6]) {
       const days = simulateZoneField({ series, headCount, maxLiters: MAX_LITERS });
       days.forEach((day, index) => {
         expect(day.moisture).toHaveLength(headCount);
@@ -272,7 +299,7 @@ describe('mô hình ước lượng phân bố theo khu', () => {
 describe('quỹ đạo tia: mọi điểm rơi nằm trong thửa', () => {
   it('streamRange và landingPoint không ra ngoài khay', () => {
     const margin = ZONE_DEFAULTS.landMargin;
-    for (const headCount of [2, 3, 4]) {
+    for (const headCount of [2, 3, 4, 6]) {
       const heads = headPositions({ ...PLOT, headCount });
       heads.forEach((head) => {
         const maxRadius = headMaxRadius(head.index, { ...PLOT, headCount });

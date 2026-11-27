@@ -47,7 +47,7 @@ export function WeatherCard(store) {
 
     tempValue.textContent = formatNumber(record.temperature, 0);
     condText.textContent = condition.label;
-    subText.textContent = `Mưa ${formatNumber(record.rainForecastMm, 0)} mm · P ${formatNumber(record.rainProbability * 100, 0)} %`;
+    subText.textContent = `Mưa ${formatNumber(record.actualRainMm, 1)} mm · P ${formatNumber(record.rainProbability * 100, 0)}%`;
 
     extraProb.textContent = `${formatNumber(record.rainProbability * 100, 0)} %`;
     extraRain.textContent = `${formatNumber(record.rainForecastMm, 1)} mm`;

@@ -1,13 +1,15 @@
 /**
- * Đồng hồ phát lại: chỉ ghi `day` vào store theo thời gian.
+ * Đồng hồ phát lại: ghi `day` vào store theo thời gian.
  *
- * Không chứa luật mô phỏng. Giai đoạn 2 file này cũng phục vụ Replay CSV;
- * giai đoạn 3 nhận frame từ WebSocket của backend.
+ * Không chứa luật mô phỏng. Hai chế độ:
+ *   - dữ liệu có sẵn (JSON/mock): tự cộng `day`, không ai phải tính lại;
+ *   - live (FastAPI): mỗi nhịp gọi `onLiveStep()` để Python chạy một ngày —
+ *     dùng lại các ngày đã tính trước khi yêu cầu Python chạy tiếp.
  */
 
 import { UI } from '../config.js';
 
-export function createPlayback(store) {
+export function createPlayback(store, { onLiveStep } = {}) {
   let frame = 0;
   let lastTime = 0;
   let accumulator = 0;
@@ -17,24 +19,22 @@ export function createPlayback(store) {
     lastTime = time;
 
     const state = store.getState();
-    if (state.playing) {
+    if (!state.playing) {
+      accumulator = 0;
+    } else {
       accumulator += delta;
       const interval = UI.timing.stepBaseMs / state.speed;
-      const total = state.series.length;
-      let day = state.day;
-
-      while (accumulator >= interval) {
-        accumulator -= interval;
-        if (day >= total) {
-          accumulator = 0;
+      if (accumulator >= interval) {
+        accumulator %= interval;
+        const latest = state.series.at(-1);
+        if (state.day < state.series.length) {
+          store.setState({ day: state.day + 1 });
+        } else if (state.dataSource === 'api' && !latest?.terminated && !latest?.truncated) {
+          onLiveStep?.();
+        } else {
           store.setState({ playing: false });
-          break;
         }
-        day += 1;
-        store.setState({ day });
       }
-    } else {
-      accumulator = 0;
     }
 
     frame = requestAnimationFrame(tick);
