@@ -19,10 +19,11 @@ môi trường thử nghiệm, reward và demo không học. Chưa triển khai 
 | `reward.py` + `tests/test_reward.py` | Xong trên `feature/reward-demo` | Sáu thành phần, validate, biên float32 |
 | `demo.py` + `tests/test_demo.py` | Xong code + unit test | Chờ chốt YAML để chạy 3 scenario thật |
 | `agriwater_env.py`, `weather.py` + `tests/test_environment.py` | Đã merge vào `feature/reward-demo` (PR #1) | Xem `TRUONG_HANDOFF.md` |
-| YAML vật lý/weather | Còn `null` | Phải chốt trước khi chạy thật |
-| Baseline, Q-Learning, DQN, train, evaluation, dashboard | Chưa làm | Giai đoạn sau |
+| Dashboard Streamlit + `tests/test_dashboard.py` | Xong trên `feature/reward-demo` | Dùng overlay v0.1; không sửa YAML |
+| YAML vật lý/weather | Còn `null` | Phải chốt trước khi chạy CLI/demo thật |
+| Baseline, Q-Learning, DQN, train, evaluation | Chưa làm | Giai đoạn sau |
 
-Kết quả tham khảo: `feature/reward-demo` có 154 passed, 1 skipped; skip duy nhất là
+Kết quả tham khảo: `feature/reward-demo` có 169 passed, 1 skipped; skip duy nhất là
 `check_env` tích hợp vì YAML vật lý còn `null`. Luôn chạy lại trên nhánh đang làm;
 không coi skipped là nghiệm thu.
 
@@ -53,10 +54,13 @@ trường đã hoàn thành.
 - [x] Demo `run_episode`, RNG riêng cho action, dừng theo terminated/truncated,
       `finally: close()`, CLI `--scenario/--seed/--action/--output/--force`.
 - [x] CSV đúng schema 16 cột, không ghi đè âm thầm; unit test dùng environment giả.
+- [x] Dashboard Streamlit: KPI, biểu đồ độ ẩm/nước tưới/mưa/reward, bảng và tải CSV.
+- [x] Overlay v0.1 trong bộ nhớ, không sửa `configs/*.yaml`; test dashboard.
 
 Còn chờ:
 
-- [ ] Chạy `run_episode` thật cho `dry`, `stormy`, `random` sau khi chốt YAML.
+- [ ] Chạy dashboard/CLI thật cho `dry`, `stormy`, `random` sau khi chốt YAML (dashboard
+      đã chạy được bằng overlay, nhưng kết quả vẫn là minh họa).
 - [ ] Ghi kết quả ba scenario và CSV mẫu vào `results/` hoặc mô tả trong PR.
 - [ ] Gửi Trưởng ví dụ reward chuẩn, biên float32, cách dùng loader và lệnh demo.
 - [ ] Cùng Trưởng chốt giá trị YAML; không tự sửa phần vật lý.
@@ -126,6 +130,7 @@ Mọi thay đổi hợp đồng phải ghi ảnh hưởng trong PR.
 
 ## Giai đoạn sau
 
-Baseline, Q-Learning, DQN, huấn luyện, benchmark và dashboard so sánh vẫn giữ
-interface để mở rộng, không thuộc nhiệm vụ tuần này. Báo cáo có năm thành viên;
+Baseline, Q-Learning, DQN, huấn luyện, benchmark và dashboard so sánh thuật toán vẫn
+giữ interface để mở rộng, không thuộc nhiệm vụ tuần này. Dashboard hiện tại chỉ là
+minh họa môi trường/reward, không huấn luyện. Báo cáo có năm thành viên;
 bảng này chỉ phân công hai người đang phát triển repository.

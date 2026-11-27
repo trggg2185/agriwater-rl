@@ -1,10 +1,9 @@
 # AgriWater-RL
 
-**Cập nhật trạng thái:** loader cấu hình, reward sáu thành phần, demo không học và
-environment/weather đã có trên `feature/reward-demo` (154 passed, 1 skipped). YAML
-vật lý/weather vẫn `null` nên `check_env` tích hợp và demo thật còn chờ chốt cấu
-hình. Xem [DESIGN_CONTRACT](docs/DESIGN_CONTRACT.md), [TASKS](docs/TASKS.md) và
-[bàn giao Trưởng](docs/TRUONG_HANDOFF.md) để biết schema, công thức và điểm nối.
+**Cập nhật trạng thái:** môi trường Gymnasium, FastAPI và hai giao diện Web 2D,
+Streamlit chạy với bộ tham số mô phỏng trong YAML. Các tham số chưa được hiệu
+chuẩn thực địa. Xem [DESIGN_CONTRACT](docs/DESIGN_CONTRACT.md),
+[BAO_CAO_MOI_TRUONG](docs/BAO_CAO_MOI_TRUONG.md) và [DASHBOARD](docs/DASHBOARD.md).
 
 **AI mới nhận dự án:** bắt đầu ở [AI_START_HERE](docs/AI_START_HERE.md), rồi đọc
 [hướng dẫn Trưởng](docs/AI_TRUONG.md) hoặc [hướng dẫn Minh](docs/AI_MINH.md).
@@ -21,11 +20,32 @@ Trưởng triển khai môi trường/thời tiết; Minh triển khai loader c�
 demo. Các thuật toán baseline, Q-Learning, DQN, huấn luyện và benchmark dành cho
 giai đoạn sau.
 
-Các thành phần dự kiến: môi trường Gymnasium và thời tiết, Rule-based Baseline,
-Tabular Q-Learning, DQN, huấn luyện, đánh giá và dashboard Streamlit.
+Các thành phần dự kiến: môi trường Gymnasium và thời tiết, dashboard Streamlit minh
+họa, Rule-based Baseline, Tabular Q-Learning, DQN, huấn luyện và đánh giá.
 Công nghệ: Python **3.13**, NumPy, Gymnasium, PyTorch (CPU), Pandas, Matplotlib,
 Streamlit, PyYAML, Pytest, Ruff và Git/GitHub. Python 3.13 thay thế yêu cầu 3.12
 trong Prompt.md theo lựa chọn của người dùng; Prompt.md được giữ nguyên.
+
+## Dashboard 2D
+
+Từ thư mục gốc, chạy `docker compose up -d --build`, rồi mở
+[AgriWater-RL](http://127.0.0.1:5173/). Bản dựng web phục vụ dashboard Canvas 2D
+và chuyển yêu cầu `/api/` tới FastAPI. Màn hình mở ở ruộng lúa, kịch bản khô hạn,
+seed 42 và ngày 18. FastAPI chạy từng ngày bằng `AgriWaterEnv` theo baseline
+đến mốc này. Bấm **Ngày tiếp** để dùng chính sách hiện tại. Để tưới thủ công,
+chọn mức nước ở ngày mới nhất rồi bấm nút áp dụng ở thanh ngày.
+
+API dùng cấu hình mô phỏng trong YAML. [Chế độ phát lại](http://127.0.0.1:5173/?preview=1)
+mở dữ liệu đã xuất trước đó với bộ tham số v0.1.
+
+Giao diện web tổ chức theo các use case thiết lập môi trường, huấn luyện,
+thử nghiệm, so sánh và báo cáo. Hồ sơ môi trường, nhật ký CSV và kết quả
+thử nghiệm được lưu trong trình duyệt. Thử nghiệm Baseline dùng một tệp JSON
+chứa mảng `weather` hoặc mảng trực tiếp gồm `maxDays + 1` bản ghi với các
+trường `temperature`, `rain_probability`, `rain_forecast_mm` và `actual_rain_mm`.
+So sánh hỗ trợ nhập episode `agriwater.episode/1` đã hoàn tất. Nhật ký học
+dùng CSV gồm `episode,reward,loss`, với `loss` tùy chọn.
+Nút huấn luyện Q-Learning/DQN chờ tích hợp backend của các thuật toán.
 
 ## Cấu trúc và trạng thái
 
@@ -37,11 +57,11 @@ agriwater/
   agents/       (__init__.py, base_agent.py, baseline.py, q_learning.py, dqn.py, reward.py)
   training/     (__init__.py, train.py)
   evaluation/   (__init__.py, evaluate.py, metrics.py)
-  dashboard/    (__init__.py, app.py)
+  dashboard/    (__init__.py, app.py, demo_config.py, plots.py)
 configs/        (environment.yaml, training.yaml, scenarios.yaml)
-tests/          (test_config.py, test_environment.py, test_reward.py, test_demo.py, test_interfaces.py)
+tests/          (test_config.py, test_environment.py, test_reward.py, test_demo.py, test_dashboard.py, test_interfaces.py)
 scripts/        (setup.ps1)
-docs/           (DESIGN_CONTRACT.md, CONTRIBUTING.md, TASKS.md, EXPERIMENT_GUIDE.md, AI_*.md)
+docs/           (DESIGN_CONTRACT.md, CONTRIBUTING.md, TASKS.md, EXPERIMENT_GUIDE.md, DASHBOARD.md, AI_*.md)
 models/         (.gitkeep; checkpoint sinh ra)
 results/        (.gitkeep; kết quả sinh ra)
 logs/           (.gitkeep; log sinh ra)
@@ -60,10 +80,8 @@ main.py         (file có sẵn được giữ nguyên, không phải entry poin
 reward sáu thành phần, demo không học và environment/weather. `config.py`,
 `reward.py`, `demo.py`, `agriwater_env.py` và `weather.py` cùng test tương ứng đã
 có trên `feature/reward-demo` (environment merge từ `feature/environment`).
-Baseline, Q-Learning, DQN, train, evaluate và metrics vẫn chưa triển khai.
-Dashboard chỉ hiện thông báo trạng thái bootstrap.
-Các hệ số vật lý/weather chưa chốt là `null`; tuyệt đối không thay `null` bằng 0
-để chạy thử. Unit test demo dùng environment giả; demo/reset thật còn chờ chốt YAML.
+API đã có Baseline theo ngưỡng độ ẩm. Huấn luyện và chạy thử trực tiếp
+Q-Learning/DQN trên dashboard đang chờ tích hợp.
 
 - Để chạy và trình bày với thầy: [BAO_CAO_MOI_TRUONG](docs/BAO_CAO_MOI_TRUONG.md).
 - API và dữ liệu hiện hành: [DESIGN_CONTRACT](docs/DESIGN_CONTRACT.md).
@@ -114,12 +132,12 @@ Không commit `.idea` hoặc `.venv`: đường dẫn interpreter là cấu hìn
 .venv/Scripts/python.exe -m streamlit run agriwater/dashboard/app.py
 ```
 
-Tests kiểm tra imports, YAML, spaces/interface, loader, reward, demo và environment.
-Trên `feature/reward-demo`: 154 passed, 1 skipped; skip duy nhất là `check_env` tích
-hợp vì YAML vật lý còn `null`. Số liệu thay đổi theo nhánh; luôn chạy lại. Trên
-Linux/macOS dùng `.venv/bin/python` thay cho `.venv/Scripts/python.exe`. Ruff bỏ qua
-`main.py` có sẵn để không thay đổi nội dung người dùng; mã mới trong agriwater đều
-được kiểm tra.
+Tests kiểm tra imports, YAML, spaces/interface, loader, reward, demo, environment và
+dashboard. Trên `feature/reward-demo`: 169 passed, 1 skipped; skip duy nhất là
+`check_env` tích hợp vì YAML vật lý còn `null`. Số liệu thay đổi theo nhánh; luôn
+chạy lại. Trên Linux/macOS dùng `.venv/bin/python` thay cho `.venv/Scripts/python.exe`.
+Ruff bỏ qua `main.py` có sẵn để không thay đổi nội dung người dùng; mã mới trong
+agriwater đều được kiểm tra.
 
 Không truyền --action thì chọn ngẫu nhiên; --action 0..5 giữ mức tưới 0/5/10/15/20/25 L. Đây là kiểm tra môi trường, không học. CSV đã tồn tại thì chọn tên mới hoặc thêm --force khi chủ động ghi đè. Thư mục cha tự được tạo.
 
@@ -160,8 +178,16 @@ Thông số demo trong YAML là giả định chưa hiệu chuẩn, không phả
 `--output` không ghi đè file cũ; thêm `--force` nếu muốn thay. CSV có 16 cột:
 `day`, `action`, `water_used_liters`, `actual_rain_mm`, `soil_moisture`, `reward`,
 `is_ideal`, `is_stressed`, `terminated`, `truncated` và sáu cột reward.
-Demo cần YAML vật lý hợp lệ; hiện các khóa còn `null` nên chỉ unit test với
-environment giả chạy được, chưa có CSV thật.
+CLI đọc cấu hình vật lý và thời tiết từ YAML.
+
+### Dashboard minh họa
+
+```bash
+python -m streamlit run agriwater/dashboard/app.py
+```
+
+Dashboard đọc YAML và cho chọn kịch bản, seed, thông số đầu vụ và các chế độ
+tưới mô phỏng. Có KPI, biểu đồ độ ẩm, nước tưới, mưa, reward và tải CSV. Chi tiết và giới hạn ở [DASHBOARD](docs/DASHBOARD.md).
 
 ## Huấn luyện và đánh giá sau này
 
@@ -169,14 +195,11 @@ Sau khi hoàn thành module và chốt CLI, các entry point là
 `python -m agriwater.training.train` và `python -m agriwater.evaluation.evaluate`.
 **Hiện các lệnh này chỉ báo chưa triển khai**, không sinh mô hình hay kết quả.
 Xem [hướng dẫn thực nghiệm](docs/EXPERIMENT_GUIDE.md) trước khi xây pipeline.
-Để xem màn hình trạng thái: `.venv/Scripts/python.exe -m streamlit run agriwater/dashboard/app.py`.
+Để xem dashboard minh họa: `python -m streamlit run agriwater/dashboard/app.py`.
 
 ## Cộng tác và quy tắc
 
-Minh đã hoàn thành loader, reward và demo; Trưởng đã hoàn thành environment/weather
-và đã merge vào `feature/reward-demo`. Bước tiếp theo là review, chốt các giá trị
-YAML còn `null` rồi chạy `check_env`/demo thật. File chung cần trao đổi trước
-khi thay đổi; chi tiết tại [TASKS](docs/TASKS.md).
+Xem phân công và các hạng mục tích hợp đang thực hiện tại [TASKS](docs/TASKS.md).
 Dùng feature/... → PR → người còn lại review → merge, không push trực tiếp main.
 Ví dụ lệnh Git và xử lý xung đột tại [CONTRIBUTING](docs/CONTRIBUTING.md).
 
@@ -199,7 +222,9 @@ truy xuất từ YAML; đọc [DESIGN_CONTRACT](docs/DESIGN_CONTRACT.md) trướ
 - NotImplementedError khi reset/step trên `main`: environment mới là stub; nhánh
   `feature/reward-demo` đã có environment nhưng reset cần chốt YAML vật lý.
   `train`/`evaluate` vẫn là bootstrap.
-- Demo báo thiếu cấu hình: YAML vật lý/weather còn `null`; xem TASKS, không điền 0.
+- Nếu cấu hình thiếu hoặc không hợp lệ, kiểm tra YAML và tài liệu hợp đồng mô phỏng.
+- Dashboard không khởi động: chạy từ gốc repo để import được `agriwater`; kiểm tra
+  Streamlit đã cài trong `.venv` và cổng 8501 không bị chiếm.
 - .idea vẫn hiện trong Git: file đã staged/tracked từ trước không bị .gitignore loại bỏ.
 
 Chưa có dữ liệu thực địa hay khẳng định hiệu quả tiết kiệm nước. Cần thống nhất

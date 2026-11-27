@@ -41,10 +41,10 @@ const clamp01 = (value) => clamp(value, 0, 1);
 
 const finiteOr = (value, fallback) => (Number.isFinite(value) ? value : fallback);
 
-/** headCount hợp lệ: số nguyên 2…4. */
+/** headCount hợp lệ: số nguyên 2…6. */
 export function clampHeadCount(headCount) {
   const n = Math.round(finiteOr(headCount, ZONE_DEFAULTS.headCount));
-  return clamp(n, 2, 4);
+  return clamp(n, 2, 6);
 }
 
 /**
@@ -198,7 +198,7 @@ function normalizeShares(values) {
  *
  * @param {object} input
  * @param {Array<{day:number, waterLiters:number, moisture:number, previousMoisture?:number}>} input.series
- * @param {number} input.headCount 2…4
+ * @param {number} input.headCount 2…6
  * @param {number} input.maxLiters mức tưới lớn nhất trong meta
  * @param {'estimate'|'uniform'} [input.mode]
  * @returns {Array<{day:number, liters:number, openCount:number, openZones:number[],
@@ -265,6 +265,56 @@ export function zoneTimeline({ series = [], headCount, maxLiters = 0, mode = 'es
   const days = simulateZoneField({ series, headCount, maxLiters, mode });
   timelineCache.set(series, { key, days });
   return days;
+}
+
+/** Trạng thái đợt tưới đang xem, dùng chung cho cảnh và các điều khiển. */
+export function irrigationStatus(state, headCount) {
+  const count = clampHeadCount(headCount);
+  const series = state.series ?? [];
+  const maxLiters = Math.max(0, ...state.meta.actionLiters);
+  const mode = state.zoneMode === 'uniform' ? 'uniform' : 'estimate';
+  const days = zoneTimeline({ series, headCount: count, maxLiters, mode });
+  const entry = days[Math.max(0, Math.min(days.length - 1, state.day - 1))];
+  const mean = entry?.mean ?? 0.45;
+  const moisture = entry?.moisture ?? new Array(count).fill(mean);
+  const liters = state.previewAction ?? entry?.liters ?? 0;
+  const available = moisture.map((_, index) => index).filter((index) => state.openHeads?.[index] !== false);
+  const zones = state.previewAction == null ? entry?.openZones ?? [] : pickZones({
+    zoneMoisture: available.map((index) => moisture[index]),
+    count: openCount(liters, maxLiters, count),
+    day: state.day,
+  }).map((index) => available[index]);
+  const pumpOn = state.pumpOn !== false;
+  const openMask = Array.from({ length: count }, (_, index) =>
+    pumpOn && state.openHeads?.[index] !== false && zones.includes(index),
+  );
+  const per = flowPerOpen(liters, zones.length);
+  const flows = openMask.map((open) => open ? per : 0);
+  return { count, pumpOn, liters, maxLiters, mean, moisture, openMask, flows };
+}
+
+/** Ruộng 2D dùng các vòi đang mở để chia đều lượng nước của cả đợt tưới. */
+export function fieldIrrigationStatus(state, headCount) {
+  const status = irrigationStatus(state, headCount);
+  const openMask = Array.from({ length: status.count }, (_, index) =>
+    status.pumpOn && status.liters > 0 && state.openHeads?.[index] !== false,
+  );
+  const flow = flowPerOpen(status.liters, openMask.filter(Boolean).length);
+  return { ...status, openMask, flows: openMask.map((open) => open ? flow : 0) };
+}
+
+/** Điều kiện áp dụng hành động vào ngày tiếp theo của phiên live. */
+export function irrigationBlock(state, liters, headCount) {
+  if (state.simulationBusy) return 'Đang cập nhật mô phỏng…';
+  if (state.dataSource !== 'api') return '';
+  if (state.day < state.series.length) return 'Bạn đang xem lịch sử. Về ngày mới nhất để tưới.';
+  const last = state.series.at(-1);
+  if (last?.terminated || last?.truncated) return 'Vụ đã kết thúc. Mở vụ mới để tưới.';
+  if (liters > 0 && state.pumpOn === false) return 'Bơm đang tắt. Bật bơm để tưới.';
+  if (liters > 0 && Array.from({ length: headCount }, (_, index) => state.openHeads?.[index]).every((open) => open === false)) {
+    return 'Tất cả vòi đang đóng. Mở ít nhất một vòi để tưới.';
+  }
+  return '';
 }
 
 /** Tổng lưu lượng của các vòi đang mở (phải bằng lượng nước của đợt). */

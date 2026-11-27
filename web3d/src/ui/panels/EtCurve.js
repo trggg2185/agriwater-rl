@@ -29,5 +29,5 @@ export function createEtCurve() {
     chart.update(points, ideal);
   }
 
-  return { node, update };
+  return { node, update, destroy: chart.destroy };
 }

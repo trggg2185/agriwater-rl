@@ -1,13 +1,13 @@
 /**
- * Panel "Điều khiển thiết bị": trạng thái bơm + 4 đầu phun, chọn 6 mức nước và
+ * Panel "Điều khiển thiết bị": trạng thái bơm và đầu phun, chọn 6 mức nước và
  * công tắc bơm. Mọi thay đổi ghi vào store (pumpOn / openHeads / previewAction),
- * cảnh 3D và các nút gắn trên vật thể đọc lại từ đó — một nguồn duy nhất.
+ * cảnh 2D và các nút gắn trên vật thể đọc lại từ đó.
  */
 
 import { SCENE } from '../../config.js';
 import { el, icon } from '../../utils/dom.js';
 import { formatNumber } from '../../utils/math.js';
-import { zonePlan } from '../../utils/zones.js';
+import { clampHeadCount, irrigationBlock, fieldIrrigationStatus } from '../../utils/irrigationZones.js';
 
 function statusCard({ label, unit = '', tone = '' }) {
   const value = el('span', { class: 'kpi__value' });
@@ -18,13 +18,13 @@ function statusCard({ label, unit = '', tone = '' }) {
   return { node, value };
 }
 
-export function createDevicePanel(store) {
-  const headCount = SCENE.plot.sprinklerCount;
+export function createDevicePanel(store, actions) {
+  const headCount = clampHeadCount(SCENE.sprinklers.headCount);
 
   // ---------- Trạng thái ----------
   const pumpCard = statusCard({ label: 'Bơm' });
-  const levelCard = statusCard({ label: 'Mức đang chọn', unit: 'L' });
-  const headCard = statusCard({ label: 'Đang phun' });
+  const levelCard = statusCard({ label: 'Mức hiển thị', unit: 'L' });
+  const headCard = statusCard({ label: 'Vòi đang phun' });
   pumpCard.value.textContent = 'Bật';
 
   const statusGrid = el('div', { class: 'kpi-grid' }, [
@@ -57,13 +57,13 @@ export function createDevicePanel(store) {
         { class: 'level-btn', type: 'button' },
         [el('strong', {}, liters === 0 ? '0' : String(liters)), el('span', {}, 'L')],
       );
-      button.addEventListener('click', () => store.setState({ previewAction: liters }));
+      button.addEventListener('click', () => actions.selectIrrigation(liters));
       levelGrid.append(button);
       return button;
     });
   }
 
-  // ---------- 4 đầu phun ----------
+  // ---------- Đầu phun ----------
   const headList = el('div', { class: 'device-heads' });
   const headRows = [];
 
@@ -102,9 +102,10 @@ export function createDevicePanel(store) {
   const hint = el(
     'p',
     { class: 'section__hint' },
-    'Bơm tưới luân canh từng khu: 5 L mở 1 vòi, 25 L mở cả 4, khu được chọn xoay theo ngày. Bấm nút tròn trên cảnh để bật/tắt bơm và đóng/mở từng đầu phun.',
+    'Các vòi đang mở chia vùng để phủ toàn ruộng. Mô hình Python tính lượng nước chung cho ruộng.',
   );
 
+  const levelHint = el('p', { class: 'section__hint' });
   const node = el('div', { class: 'device-panel' }, [
     el('section', { class: 'section' }, [
       el('div', { class: 'section__head' }, [el('h3', { class: 'section__title' }, 'Trạng thái')]),
@@ -114,6 +115,7 @@ export function createDevicePanel(store) {
     el('section', { class: 'section' }, [
       el('div', { class: 'section__head' }, [el('h3', { class: 'section__title' }, 'Mức nước')]),
       levelGrid,
+      levelHint,
     ]),
     el('section', { class: 'section' }, [
       el('div', { class: 'section__head' }, [el('h3', { class: 'section__title' }, 'Đầu phun')]),
@@ -123,31 +125,18 @@ export function createDevicePanel(store) {
   ]);
 
   function update(state) {
-    const visible = state.series.slice(0, Math.max(1, state.day));
-    const record = visible[visible.length - 1];
-    const liters = state.previewAction ?? (record ? record.waterLiters : 0);
+    const { liters, pumpOn, openMask } = fieldIrrigationStatus(state, headCount);
     const openHeads = state.openHeads ?? [];
-    const pumpOn = state.pumpOn !== false;
-    // Hệ tưới chạy luân canh khu: mỗi đợt chỉ một phần số vòi phun.
-    const plan = zonePlan({
-      liters,
-      day: record ? record.day : state.day,
-      headCount: headRows.length,
-      actionLiters: state.meta?.actionLiters ?? [],
-    });
-    const sprayingCount = headRows.reduce(
-      (total, _row, index) =>
-        total + (openHeads[index] !== false && plan[index] && pumpOn && liters > 0 ? 1 : 0),
-      0,
-    );
+    const sprayingCount = openMask.filter(Boolean).length;
 
     pumpCard.value.textContent = pumpOn ? 'Bật' : 'Tắt';
     pumpCard.node.classList.toggle('is-warn', !pumpOn);
-    levelCard.value.textContent = liters === 0 ? 'Không tưới' : formatNumber(liters, 0);
+    levelCard.value.textContent = formatNumber(liters, 0);
     levelCard.node.classList.toggle('is-warn', liters === 0);
     headCard.value.textContent = `${sprayingCount}/${headRows.length}`;
     headCard.node.classList.toggle('is-warn', sprayingCount === 0);
 
+    pumpButton.disabled = state.simulationBusy;
     pumpButton.classList.toggle('is-on', pumpOn);
     pumpButton.setAttribute('aria-pressed', String(pumpOn));
     pumpButton.replaceChildren(icon('power'), pumpOn ? 'Bơm đang chạy' : 'Bơm đã tắt');
@@ -156,13 +145,22 @@ export function createDevicePanel(store) {
       buildLevels(state.meta.actionLiters);
     }
     levelButtons.forEach((button, index) => {
-      button.classList.toggle('is-active', state.meta.actionLiters[index] === liters);
+      const candidate = state.meta.actionLiters[index];
+      const blocked = irrigationBlock(state, candidate, headCount);
+      const selected = candidate === state.previewAction;
+      button.classList.toggle('is-active', selected);
+      button.setAttribute('aria-pressed', String(selected));
+      button.disabled = Boolean(blocked);
+      button.title = blocked;
     });
+    levelHint.textContent = irrigationBlock(state, 1, headCount) || (state.dataSource === 'api'
+      ? 'Chọn mức nước, rồi bấm nút áp dụng ở thanh ngày.'
+      : 'Chọn mức nước để xem thử trên ruộng.');
 
     headRows.forEach((row, index) => {
       const open = openHeads[index] !== false;
-      const inZone = Boolean(plan[index]);
-      const running = open && inZone && pumpOn && liters > 0;
+      const running = openMask[index];
+      row.toggle.disabled = state.simulationBusy;
       row.toggle.classList.toggle('is-on', open);
       row.toggle.setAttribute('aria-pressed', String(open));
       row.dot.classList.toggle('is-running', running);

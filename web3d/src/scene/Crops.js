@@ -8,7 +8,7 @@
 
 import * as THREE from 'three';
 import { SCENE } from '../config.js';
-import { ridgeHeight } from './Soil.js';
+import { ridgeHeight, SOIL_BASE_Y } from './Soil.js';
 
 const STEM_COLOR = new THREE.Color('#6d9a44');
 const LEAF_BASE = new THREE.Color('#4d7d31');
@@ -18,9 +18,13 @@ const TASSEL_COLOR = new THREE.Color('#cbb46a');
 const EAR_COLOR = new THREE.Color('#d9c66d');
 const HUSK_COLOR = new THREE.Color('#7fa348');
 const SILK_COLOR = new THREE.Color('#b06a4a');
-const RICE_STEM = new THREE.Color('#6f9445');
-const RICE_LEAF = new THREE.Color('#7fae52');
-const PANICLE = new THREE.Color('#c9b46b');
+const RICE_STEM = new THREE.Color('#62815f');
+const RICE_LEAF = [
+  new THREE.Color('#345e48'),
+  new THREE.Color('#6d8b65'),
+  new THREE.Color('#a8ae76'),
+];
+const PANICLE = new THREE.Color('#e0cb86');
 
 const PLANT_HEIGHT = 0.95;
 const ROWS = SCENE.plot.ridges;
@@ -79,9 +83,11 @@ function createBuilder() {
 }
 
 /** Chia màu lá theo chiều dài: gốc đậm → thân → đầu sáng. */
-function leafColor(t, target) {
-  if (t < 0.55) return target.copy(LEAF_BASE).lerp(LEAF_MID, t / 0.55);
-  return target.copy(LEAF_MID).lerp(LEAF_TIP, (t - 0.55) / 0.45);
+const CORN_LEAF = [LEAF_BASE, LEAF_MID, LEAF_TIP];
+
+function leafColor(t, target, [base, mid, tip]) {
+  if (t < 0.55) return target.copy(base).lerp(mid, t / 0.55);
+  return target.copy(mid).lerp(tip, (t - 0.55) / 0.45);
 }
 
 /** Thêm một lá ribbon: 3 cột đỉnh/đoạn (trái, gân giữa nổi, phải). */
@@ -98,6 +104,9 @@ function addLeaf(builder, options) {
     segments = 10,
     twist = 0.35,
     colorScale = 1,
+    palette = CORN_LEAF,
+    originX = 0,
+    originZ = 0,
   } = options;
 
   const cosA = Math.cos(azimuth);
@@ -110,8 +119,8 @@ function addLeaf(builder, options) {
     const t = i / segments;
     const radial = Math.cos(startAngle) * length * t;
     const lift = Math.sin(startAngle) * length * t - droop * length * t * t;
-    const cx = cosA * radial;
-    const cz = sinA * radial;
+    const cx = originX + cosA * radial;
+    const cz = originZ + sinA * radial;
     const cy = attachY + lift;
 
     const halfWidth = Math.max(
@@ -123,7 +132,7 @@ function addLeaf(builder, options) {
     const lz = lateralZ * Math.cos(twistAngle);
     const ly = Math.sin(twistAngle) * halfWidth;
 
-    const color = leafColor(t, new THREE.Color()).multiplyScalar(colorScale);
+    const color = leafColor(t, new THREE.Color(), palette).multiplyScalar(colorScale);
     const heightAt = Math.min(1, Math.max(0, (cy / plantHeight) * 0.92));
 
     const left = builder.vertex(
@@ -371,29 +380,32 @@ function buildRice(variant) {
   const random = mulberry32(9100 + variant * 91);
   const builder = createBuilder();
   const tillers = 5 + Math.floor(random() * 3);
-  const height = 1.25 * (0.94 + random() * 0.12);
+  const height = 1.67 * (0.92 + random() * 0.16);
 
   for (let i = 0; i < tillers; i += 1) {
     const angle = (i / tillers) * Math.PI * 2 + random() * 0.4;
-    const spread = 0.045;
+    const spread = 0.083;
     const baseX = Math.cos(angle) * spread;
     const baseZ = Math.sin(angle) * spread;
     const stemHeight = height * (0.85 + random() * 0.3);
 
     for (let k = 0; k < 4; k += 1) {
-      const attachY = stemHeight * (0.25 + k * 0.2);
+      const attachY = stemHeight * (0.12 + k * 0.18);
       addLeaf(builder, {
         azimuth: angle + k * 1.9,
         attachY,
-        length: height * (0.52 - k * 0.06),
-        width: 0.032,
-        startAngle: 1.2 - k * 0.12,
-        droop: 0.55 + k * 0.12,
+        length: height * (0.61 - k * 0.065),
+        width: 0.036,
+        startAngle: 1.14 - k * 0.15,
+        droop: 0.42 + k * 0.1,
         birth: k < 2 ? 0 : k < 3 ? 1 : 2,
         plantHeight: height,
         segments: 7,
         twist: 0.2,
         colorScale: 1.02,
+        palette: RICE_LEAF,
+        originX: baseX,
+        originZ: baseZ,
       });
     }
 
@@ -405,13 +417,21 @@ function buildRice(variant) {
     const d = builder.vertex(baseX, 0, baseZ, RICE_STEM, 0, 0);
     builder.quad(a, b, c, d);
 
-    // Bông lúa
-    const panicleLength = 0.24;
-    const p0 = builder.vertex(baseX, stemTop, baseZ, PANICLE, 2, 0.95);
-    const p1 = builder.vertex(baseX + 0.05, stemTop + panicleLength, baseZ, PANICLE, 2, 1);
-    const p2 = builder.vertex(baseX - 0.05, stemTop + panicleLength * 0.96, baseZ, PANICLE, 2, 1);
-    const p3 = builder.vertex(baseX, stemTop + panicleLength * 0.5, baseZ, PANICLE, 2, 0.97);
-    builder.quad(p0, p1, p3, p2);
+    // Bông lúa cong nhẹ, các hạt xếp xen kẽ dọc theo nhánh.
+    for (let grain = 0; grain < 12; grain += 1) {
+      const t = grain / 11;
+      const reach = 0.32 * t ** 1.4;
+      const side = (grain % 2 ? 1 : -1) * (0.015 + 0.037 * Math.sin(Math.PI * t));
+      const x = baseX + Math.cos(angle) * reach - Math.sin(angle) * side;
+      const z = baseZ + Math.sin(angle) * reach + Math.cos(angle) * side;
+      const y = stemTop + 0.29 * Math.sin(t * 1.94);
+      const radius = 0.018;
+      const a = builder.vertex(x, y + 0.038, z, PANICLE, 2, 1);
+      const b = builder.vertex(x + radius, y, z + radius, PANICLE, 2, 1);
+      const c = builder.vertex(x, y - 0.031, z, PANICLE, 2, 1);
+      const d = builder.vertex(x - radius, y, z - radius, PANICLE, 2, 1);
+      builder.quad(a, b, c, d);
+    }
   }
 
   return builder.build();
@@ -470,7 +490,7 @@ function createCropMaterial(uniforms) {
       .replace(
         '#include <color_vertex>',
         `#include <color_vertex>
-        float dryMask = smoothstep( 0.66, 0.16, aHeight ) * uDry;
+        float dryMask = (1.0 - smoothstep( 0.16, 0.66, aHeight )) * uDry;
         vColor = mix( vColor, vec3( 0.60, 0.47, 0.17 ), dryMask );
         float stressMask = smoothstep( 0.5, 1.0, aHeight ) * uStress;
         vColor = mix( vColor, vec3( 0.52, 0.5, 0.28 ), stressMask * 0.5 );`,
@@ -497,12 +517,13 @@ export function createCrops({ heads = [] } = {}) {
   const riceMaterial = createCropMaterial(uniforms);
 
   const cornGroup = new THREE.Group();
+  cornGroup.name = 'maize';
   const riceGroup = new THREE.Group();
+  riceGroup.name = 'rice';
 
   const { width, depth, ridges } = SCENE.plot;
   const rowDepth = depth / ridges;
-  // Chỉ trồng trong LÒNG ĐẤT: bỏ phần viền khay + chừa mép để lá không tràn
-  // ra thành khay/sàn (trước đây dùng full width nên cây mọc cả trên viền).
+  // Chừa lề đất giữa các hàng cây và mép cỏ.
   const soilMargin = SCENE.plot.soilInset + 0.22;
   const rowLength = width - soilMargin * 2;
   const plantsPerRow = Math.max(8, Math.round(rowLength / PLANT_SPACING));
@@ -585,19 +606,18 @@ export function createCrops({ heads = [] } = {}) {
   const water = new THREE.Mesh(
     new THREE.PlaneGeometry(width - SCENE.plot.soilInset * 2, depth - SCENE.plot.soilInset * 2),
     new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color('#4e6f6a'),
+      color: new THREE.Color('#789b8b'),
       transparent: true,
-      opacity: 0.42,
-      roughness: 0.18,
-      metalness: 0.05,
-      transmission: 0.35,
+      opacity: 0.61,
+      depthWrite: false,
+      roughness: 0.36,
       side: THREE.DoubleSide,
     }),
   );
   water.rotation.x = -Math.PI / 2;
-  // Phải nằm TRÊN đỉnh luống (cao nhất ~0.55): nếu cắt ngang mặt đất thì hai
-  // mặt phẳng gần nhau sẽ nhấp nháy khi xoay camera.
-  water.position.y = 0.56;
+  // Lớp nước nông nằm giữa đáy rãnh và đỉnh luống.
+  water.position.y = SOIL_BASE_Y + SCENE.plot.ridgeHeight * 0.54;
+  water.name = 'paddy-water';
   water.visible = false;
   group.add(water);
 

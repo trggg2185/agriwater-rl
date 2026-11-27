@@ -1,12 +1,11 @@
 /**
- * Thời tiết trong cảnh: mưa (vệt LineSegments + mây giả) và ánh sáng ấm khi
- * nắng gắt. Chỉ đọc dữ liệu weather/observation từ store.
+ * Mưa, ánh sáng và độ mờ chuyển dần giữa các trạng thái thời tiết.
  */
 
 import * as THREE from 'three';
 import { SCENE } from '../config.js';
 
-const RAIN_COUNT = 900;
+const RAIN_COUNT = 480;
 
 function createRain() {
   const positions = new Float32Array(RAIN_COUNT * 2 * 3);
@@ -16,12 +15,12 @@ function createRain() {
     const x = (Math.random() - 0.5) * 26;
     const y = Math.random() * 14;
     const z = (Math.random() - 0.5) * 26;
-    const length = 0.35 + Math.random() * 0.45;
+    const length = 0.28 + Math.random() * 0.55;
 
     positions[i * 6] = x;
     positions[i * 6 + 1] = y;
     positions[i * 6 + 2] = z;
-    positions[i * 6 + 3] = x + 0.04;
+    positions[i * 6 + 3] = x + 0.16;
     positions[i * 6 + 4] = y - length;
     positions[i * 6 + 5] = z;
 
@@ -47,16 +46,17 @@ function createRain() {
         vec3 p = position;
         float fall = mod( uTime * aSpeed, 15.0 );
         p.y = mod( p.y - fall + 15.0, 15.0 ) - 1.0;
+        p.x += p.y * 0.19;
         vec4 mv = modelViewMatrix * vec4( p, 1.0 );
         gl_Position = projectionMatrix * mv;
-        vAlpha = 0.55;
+        vAlpha = smoothstep( -0.35, 0.8, p.y ) * (1.0 - smoothstep( 12.0, 14.0, p.y ));
       }
     `,
     fragmentShader: /* glsl */ `
       uniform float uOpacity;
       varying float vAlpha;
       void main() {
-        gl_FragColor = vec4( 0.74, 0.83, 0.88, vAlpha * uOpacity );
+        gl_FragColor = vec4( 0.83, 0.91, 0.96, vAlpha * uOpacity * 0.66 );
       }
     `,
   });
@@ -67,65 +67,29 @@ function createRain() {
   return { lines, material };
 }
 
-function createClouds() {
-  const group = new THREE.Group();
-  const material = new THREE.MeshStandardMaterial({
-    color: new THREE.Color('#3a4442'),
-    roughness: 1,
-    metalness: 0,
-    transparent: true,
-    opacity: 0.75,
-  });
-
-  const spots = [
-    [-8, 9.5, -4, 4.2],
-    [2, 10.4, 3, 5.4],
-    [8, 8.6, -6, 3.4],
-    [-2, 11.2, 7, 4.6],
-  ];
-
-  for (const [x, y, z, scale] of spots) {
-    const cloud = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 10), material);
-    cloud.position.set(x, y, z);
-    cloud.scale.set(scale, scale * 0.45, scale * 0.8);
-    group.add(cloud);
-  }
-
-  group.visible = false;
-  return group;
-}
-
-export function createWeatherFX(baseY = 0) {
-  const group = new THREE.Group();
-  group.name = 'weather';
-
+export function createWeatherFX() {
   const rain = createRain();
-  const clouds = createClouds();
-  rain.lines.position.y = baseY;
-  clouds.position.y = baseY;
-  group.add(rain.lines, clouds);
-
   let rainAmount = 0;
+  let overcast = 0;
 
   return {
-    group,
-    /** Trả về gợi ý điều chỉnh ánh sáng để SceneManager áp dụng. */
-    update(delta, record) {
-      const raining = record ? Math.min(1, record.actualRainMm / 8) : 0;
-      const probability = record ? record.rainProbability : 0;
-      rainAmount += (raining - rainAmount) * Math.min(1, delta * 2);
-      const visible = rainAmount > 0.03 || probability > 0.75;
+    group: rain.lines,
+    update(delta, record, preview) {
+      const actualRain = record?.actualRainMm ?? 0;
+      const forecast = record?.rainProbability ?? 0;
+      const rainTarget = preview ? 0.52 : Math.min(actualRain / 8, 1);
+      const cloudTarget = preview ? 0.38 : Math.max(rainTarget, forecast * 0.55);
+      const blend = 1 - Math.exp(-delta * 3);
+      rainAmount += (rainTarget - rainAmount) * blend;
+      overcast += (cloudTarget - overcast) * blend;
 
-      rain.lines.visible = visible;
-      clouds.visible = visible || probability > 0.55;
-      rain.material.uniforms.uOpacity.value = Math.max(0.12, rainAmount) * (visible ? 1 : 0);
-
-      const overcast = Math.max(rainAmount, probability * 0.6);
+      rain.lines.visible = rainAmount > 0.008;
+      rain.material.uniforms.uOpacity.value = rainAmount;
       return {
-        sunIntensity: SCENE.light.sunIntensity * (1 - overcast * 0.55),
-        hemiIntensity: SCENE.light.hemiIntensity * (1 - overcast * 0.2),
-        fogFar: SCENE.fog.far * (1 - overcast * 0.35),
-        overcast,
+        sunIntensity: SCENE.light.sunIntensity * (1 - overcast * 0.58),
+        hemiIntensity: SCENE.light.hemiIntensity * (1 - overcast * 0.14),
+        fogNear: SCENE.fog.near - overcast * 37,
+        fogFar: SCENE.fog.far - overcast * 61,
       };
     },
     advanceTime(seconds) {
