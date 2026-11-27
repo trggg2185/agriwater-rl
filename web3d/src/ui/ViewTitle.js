@@ -3,6 +3,8 @@ import { el } from '../utils/dom.js';
 /** Nhãn cho nguồn dữ liệu (xem data/replay.js và data/apiClient.js). */
 export const POLICY_LABELS = {
   baseline: 'Baseline (Python)',
+  q_learning: 'Q-Learning (Python)',
+  dqn: 'DQN (Python)',
   random: 'Ngẫu nhiên (Python)',
   fixed: 'Cố định (Python)',
   manual: 'Live (Python)',

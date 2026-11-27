@@ -1,10 +1,13 @@
 """Test lớp HTTP mỏng bọc môi trường: không kiểm tra lại công thức nước/điểm.
 
-Điều cần khoá ở đây là hợp đồng với giao diện 3D: ba endpoint, dạng payload,
+Điều cần khoá ở đây là hợp đồng với dashboard 2D: dạng payload,
 ánh xạ lít → action, và các mã lỗi mà client dựa vào để quyết định.
 """
 
 from __future__ import annotations
+
+import time
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -89,7 +92,9 @@ def test_session_can_start_on_day_18_and_continue_with_manual_irrigation() -> No
     assert [record["day"] for record in state["series"]] == list(range(1, 19))
     for record in state["series"]:
         expected = (
-            runtime.BASELINE_ACTION if record["previousMoisture"] < runtime.BASELINE_THRESHOLD else 0
+            runtime.BASELINE_ACTION
+            if record["previousMoisture"] < runtime.BASELINE_THRESHOLD
+            else 0
         )
         assert record["action"] == expected
 
@@ -122,9 +127,7 @@ def test_automatic_step_uses_baseline_when_soil_is_dry() -> None:
 
 def test_no_water_means_zero_liters() -> None:
     session = client.post("/api/session", json={"scenario": "dry", "seed": 7}).json()
-    body = client.post(
-        "/api/step", json={"session_id": session["session_id"], "action": 0}
-    ).json()
+    body = client.post("/api/step", json={"session_id": session["session_id"], "action": 0}).json()
     last = body["series"][-1]
     assert last["action"] == 0
     assert last["waterLiters"] == 0
@@ -169,9 +172,7 @@ def test_sessions_are_isolated() -> None:
     client.post("/api/step", json={"session_id": first["session_id"], "action": 4})
     # Ván thứ hai vẫn ở ngày 1 dù cùng kịch bản/seed.
     assert len(second["series"]) == 1
-    again = client.post(
-        "/api/step", json={"session_id": second["session_id"], "action": 0}
-    ).json()
+    again = client.post("/api/step", json={"session_id": second["session_id"], "action": 0}).json()
     assert again["series"][-1]["day"] == 2
 
 
@@ -184,7 +185,7 @@ def test_payload_is_deterministic_for_same_seed() -> None:
 
 def test_session_uses_initial_observation_and_uploaded_weather() -> None:
     weather = [
-        {"temperature": 29, "rain_probability": .4, "rain_forecast_mm": 4, "actual_rain_mm": 2}
+        {"temperature": 29, "rain_probability": 0.4, "rain_forecast_mm": 4, "actual_rain_mm": 2}
         for _ in range(31)
     ]
     response = client.post(
@@ -193,9 +194,9 @@ def test_session_uses_initial_observation_and_uploaded_weather() -> None:
             "crop": 1,
             "initial_state": {
                 "growth_stage": 1,
-                "soil_moisture": .62,
+                "soil_moisture": 0.62,
                 "temperature": 31,
-                "rain_probability": .5,
+                "rain_probability": 0.5,
                 "rain_forecast_mm": 6,
                 "last_irrigation_liters": 10,
             },
@@ -204,9 +205,154 @@ def test_session_uses_initial_observation_and_uploaded_weather() -> None:
     )
     assert response.status_code == 200, response.text
     first = response.json()["series"][0]
-    assert (first["crop"], first["stage"], first["previousMoisture"]) == (1, 1, .62)
-    assert (first["temperature"], first["rainProbability"], first["rainForecastMm"]) == pytest.approx((31, .5, 6))
+    assert (first["crop"], first["stage"], first["previousMoisture"]) == (1, 1, 0.62)
+    assert (
+        first["temperature"],
+        first["rainProbability"],
+        first["rainForecastMm"],
+    ) == pytest.approx((31, 0.5, 6))
     assert (first["lastIrrigation"], first["actualRainMm"]) == pytest.approx((10, 2))
-    result = client.post("/api/step", json={"session_id": response.json()["session_id"], "action": 0})
+    result = client.post(
+        "/api/step", json={"session_id": response.json()["session_id"], "action": 0}
+    )
     assert result.json()["series"][-1]["temperature"] == pytest.approx(29)
     assert client.post("/api/session", json={"weather": weather[:-1]}).status_code == 422
+
+
+def test_scenario_supplies_blank_weather_and_honors_first_day_rain() -> None:
+    body = {"scenario": "stormy", "seed": 42, "crop": 1, "start_day": 2}
+    generated = client.post("/api/session", json=body).json()["series"]
+    response = client.post(
+        "/api/session",
+        json={
+            **body,
+            "initial_state": {"growth_stage": 0, "soil_moisture": 0.45, "actual_rain_mm": 22},
+        },
+    )
+    assert response.status_code == 200, response.text
+    custom = response.json()["series"]
+    assert custom[0]["temperature"] == generated[0]["temperature"]
+    assert custom[0]["rainProbability"] == generated[0]["rainProbability"]
+    assert custom[0]["rainForecastMm"] == generated[0]["rainForecastMm"]
+    assert custom[0]["actualRainMm"] == 22
+    assert custom[1]["actualRainMm"] == generated[1]["actualRainMm"]
+
+
+def test_weather_changes_future_days_without_rewriting_episode() -> None:
+    body = client.post("/api/session", json={"scenario": "dry", "seed": 42, "crop": 1}).json()
+    session_id = body["session_id"]
+    request = {"session_id": session_id, "day": 2, "mode": "storm"}
+    response = client.post("/api/weather", json=request)
+    assert response.status_code == 200
+    assert response.json()["upcomingWeather"] == {
+        "day": 2,
+        "mode": "storm",
+        "temperature": 25,
+        "rainProbability": 0.95,
+        "rainForecastMm": 25,
+        "actualRainMm": 22,
+    }
+    result = client.post("/api/step", json={"session_id": session_id, "action": 0}).json()
+    assert result["series"][:1] == body["series"]
+    assert result["day"] == 2
+    assert result["series"][1]["actualRainMm"] == 22
+    assert result["series"][1]["temperature"] == pytest.approx(25)
+    assert result["series"][1]["rainProbability"] == pytest.approx(0.95)
+    assert result["upcomingWeather"]["mode"] == "storm"
+    assert client.post("/api/weather", json=request).status_code == 409
+
+
+def test_random_weather_uses_seed_and_updates_each_next_day() -> None:
+    session = client.post("/api/session", json={"scenario": "dry", "seed": 42, "crop": 1}).json()
+    session_id = session["session_id"]
+    request = {"session_id": session_id, "day": 2, "mode": "random"}
+    forecast = client.post("/api/weather", json=request).json()["upcomingWeather"]
+    assert client.post("/api/weather", json=request).json()["upcomingWeather"] == forecast
+    result = client.post("/api/step", json={"session_id": session_id, "action": 0}).json()
+    assert result["series"][1]["actualRainMm"] == pytest.approx(forecast["actualRainMm"])
+    assert result["upcomingWeather"]["day"] == 3
+    assert result["upcomingWeather"]["temperature"] != forecast["temperature"]
+
+
+@pytest.mark.parametrize(
+    ("algorithm", "path_attr", "filename"),
+    [
+        ("q_learning", "DEFAULT_Q_TABLE_PATH", "q_table.npz"),
+        ("dqn", "DEFAULT_DQN_PATH", "dqn_best.pt"),
+    ],
+)
+def test_training_publishes_model_for_session_and_experiment(
+    algorithm: str,
+    path_attr: str,
+    filename: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    model = tmp_path / filename
+    monkeypatch.setattr(runtime, path_attr, model)
+    inputs = {"policy": algorithm, "scenario": "dry", "seed": 429, "crop": 1}
+    assert algorithm not in client.get("/api/meta").json()["availablePolicies"]
+    assert client.post("/api/session", json=inputs).status_code == 503
+
+    response = client.post(
+        "/api/training",
+        json={
+            "algorithm": algorithm,
+            "scenario": "dry",
+            "seed": 41,
+            "total_timesteps": 101,
+            "learning_rate": 0.001,
+        },
+    )
+    assert response.status_code == 202
+    url = f"/api/training/{response.json()['id']}"
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        progress = client.get(url).json()
+        if progress["status"] != "running":
+            break
+        time.sleep(0.05)
+
+    assert progress["status"] == "completed", progress["error"]
+    assert model.is_file()
+    assert progress["timesteps"] == progress["targetTimesteps"] == 101
+    assert progress["completedEpisodes"] >= 4
+    assert client.get(url, params={"after": 2}).json()["series"] == progress["series"][2:]
+    assert algorithm in client.get("/api/meta").json()["availablePolicies"]
+
+    first = client.post("/api/experiment", json=inputs).json()
+    second = client.post("/api/experiment", json=inputs).json()
+    assert first["series"] == second["series"]
+    assert first["source"]["policy"] == algorithm
+    assert "session_id" not in first
+    assert first["series"][-1]["terminated"] or first["series"][-1]["truncated"]
+
+    response = client.post("/api/session", json=inputs)
+    assert response.status_code == 200
+    session = response.json()
+    assert session["series"][0] == first["series"][0]
+    response = client.post(
+        "/api/step",
+        json={
+            "session_id": session["session_id"],
+            "action": 0,
+            "automatic": True,
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["series"] == first["series"][:2]
+
+
+def test_corrupt_checkpoint_does_not_disable_baseline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model = tmp_path / "q_table.npz"
+    model.write_text("not a checkpoint")
+    monkeypatch.setattr(runtime, "DEFAULT_Q_TABLE_PATH", model)
+    response = client.get("/api/meta")
+    assert response.status_code == 200
+    policies = {policy["key"]: policy for policy in response.json()["policies"]}
+    assert policies["baseline"]["available"]
+    assert not policies["q_learning"]["available"]
+    assert "Không đọc được" in policies["q_learning"]["reason"]
+    assert client.post("/api/experiment", json={"policy": "baseline"}).status_code == 200

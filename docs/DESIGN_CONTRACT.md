@@ -1,29 +1,9 @@
 # Hợp đồng kỹ thuật hiện hành — môi trường AgriWater-RL
 
-**Cập nhật triển khai:** environment/weather đã merge vào `feature/reward-demo` qua
-PR #1; loader/reward/demo đã có. Xem `TRUONG_HANDOFF.md` về schema vật lý, công thức,
-reset/step/render. Observation/action và reward không đổi; render_mode=None|"ansi".
-Giá trị vật lý/weather vẫn chưa chốt nên `check_env` tích hợp còn bị skip.
-
-Trưởng và Minh phải thống nhất trước khi thay đổi API, ý nghĩa dữ liệu hoặc cấu hình.
-Python sử dụng **3.13** theo quyết định của người dùng, thay cho 3.12 trong Prompt.md.
-Đây là bootstrap, chưa có mô hình nông học hay thuật toán hoàn chỉnh.
-
-## Trạng thái triển khai
-
-- `agriwater/config.py`: `load_config(name)` đã triển khai và có test.
-- `agriwater/agents/reward.py`: sáu thành phần reward đã triển khai và có test biên.
-- `agriwater/environment/demo.py`: vòng lặp demo, CLI và CSV đã triển khai; unit test
-  dùng environment giả. Có thể chạy thật qua dashboard overlay; CLI vẫn cần YAML hợp lệ.
-- `agriwater/environment/agriwater_env.py` và `weather.py`: đã merge vào
-  `feature/reward-demo`; xem `docs/TRUONG_HANDOFF.md`. `main` có thể chậm hơn nhánh này.
-- `agriwater/dashboard/`: dashboard Streamlit minh họa đã triển khai; dùng overlay v0.1
-  trong bộ nhớ, không sửa YAML. Xem `docs/DASHBOARD.md`.
-- Các khóa vật lý và phân phối weather trong YAML vẫn `null`. Bảng "Đề xuất v0.1"
-  bên dưới là đề xuất để chạy thử, **chưa phải cấu hình đã chốt**; không coi `null` là 0.
-- Tại thời điểm cập nhật, nhánh `feature/reward-demo` có 169 passed, 1 skipped;
-  skip duy nhất là `check_env` tích hợp vì YAML vật lý còn `null`. Luôn chạy lại
-  trên nhánh đang làm.
+Môi trường Gymnasium, weather, reward và demo chạy với YAML trong `configs/`.
+Dashboard 2D dùng FastAPI và ba chiến lược Baseline, Q-Learning và DQN.
+Python sử dụng **3.13**. Các tham số YAML phục vụ mô phỏng môn học.
+Xem [bàn giao môi trường](TRUONG_HANDOFF.md) để biết lịch sử chốt schema và hệ số.
 
 ## Observation và action
 
@@ -55,6 +35,27 @@ Discrete(6): action 0..5 ánh xạ [0,5,10,15,20,25] L. Từ chối bool, float 
 - truncated: đạt max_days.
 - Hai cờ độc lập, **có thể cùng True** nếu chết đúng ngày cuối.
 - Stress <0,20/>0,85 chỉ là điều kiện reward, không phải chết cây tức thời.
+
+## API HTTP của dashboard 2D
+
+- `GET /api/meta` trả `policies` gồm `key`, `label`, `available` và `reason`
+  khi mô hình chưa sẵn sàng. `availablePolicies` là danh sách khóa dùng được.
+- `POST /api/session` nhận `scenario`, `seed`, `crop`, `policy` và tùy chọn
+  `initial_state`, `weather`, `start_day`. `policy` nhận `baseline`, `q_learning`,
+  `dqn`. `POST /api/step` chạy một ngày. `automatic: true` dùng agent đã nạp
+  lúc mở phiên. Có thể gửi mức tưới thủ công bằng `action` từ 0 đến 5.
+- `POST /api/weather` nhận `session_id`, ngày kế tiếp `day` và `mode` trong
+  `sun`, `rain`, `storm`, `random`. Chỉ các ngày chưa mô phỏng được cập nhật.
+- `POST /api/experiment` nhận cùng điều kiện và chính sách, chạy từ ngày đầu tới
+  khi môi trường dừng và trả episode đầy đủ. Kết quả không cấp `session_id`.
+- `POST /api/training` nhận ví dụ
+  `{"algorithm":"q_learning","scenario":"dry","seed":42,"total_timesteps":30000,"learning_rate":0.1,"gamma":0.99,"epsilon_start":1}`.
+  Phản hồi 202 chứa `id`. `GET /api/training/{id}?after=0` trả trạng thái, số
+  episode đã chạy, tổng timesteps và các bản ghi reward/loss. `after` là số
+  bản ghi client đã nhận. API trả tối đa 2.000 bản ghi mỗi lần đọc. Mỗi API chạy một lượt huấn luyện tại một thời điểm.
+- Kết quả mô phỏng dùng schema `agriwater.episode/1`. Phiên và tiến độ chạy
+  giữ trong bộ nhớ của một worker API. Checkpoint thành công được thay thế
+  nguyên tử trong `models/` và lưu qua lần khởi động lại.
 
 ## Info
 

@@ -92,10 +92,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--crop", type=int, choices=range(4), default=0)
     parser.add_argument("--policy", choices=POLICIES, default="baseline")
-    parser.add_argument("--action", type=int, choices=range(6), default=None,
-                        help="chỉ dùng với --policy fixed")
-    parser.add_argument("--max-days", type=int, default=None,
-                        help="mặc định lấy max_days trong config")
+    parser.add_argument(
+        "--action", type=int, choices=range(6), default=None, help="chỉ dùng với --policy fixed"
+    )
+    parser.add_argument(
+        "--max-days", type=int, default=None, help="mặc định lấy max_days trong config"
+    )
     parser.add_argument("--out-dir", type=Path, default=Path("web3d/public/data"))
     return parser.parse_args(argv)
 

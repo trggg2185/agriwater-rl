@@ -28,27 +28,28 @@ import './styles/research.css';
 import * as api from './data/apiClient.js';
 import { createMockSession } from './data/mock.js';
 import { createPlayback } from './data/playback.js';
+import { STRATEGIES } from './data/research.js';
 import { episodeUrl, loadEpisode, normalizeEpisode } from './data/replay.js';
 import { createFieldScene } from './scene/FieldScene2D.js';
 import { createStore } from './state/store.js';
 import { mountApp } from './ui/App.js';
 import { Dashboard } from './ui/Dashboard.jsx';
 
-const DEFAULT_SESSION = { scenario: 'dry', seed: 42, crop: 1 };
+const DEFAULT_SESSION = { scenario: 'dry', seed: 42, crop: 1, policy: 'baseline' };
 const DEFAULT_OPEN_DAY = 18;
 const previewMode = new URLSearchParams(window.location.search).get('preview') === '1';
 
 /** Ván đang chạy trên server; `null` = không ở chế độ live. */
 let notify = () => {};
 
-async function openSession({ scenario, seed, crop, startDay = 1, offline = false, profile }) {
+async function openSession({ scenario, seed, crop, policy = 'baseline', startDay = 1, offline = false, profile }) {
   if (!offline) {
     try {
-      const payload = await api.createSession({ scenario, seed, crop, startDay, initialState: profile?.initialState, weather: profile?.weather });
-      console.info(`[agriwater] backend live: ${scenario} · seed ${seed}`);
-      return { ...normalizeEpisode(payload, { dataSource: 'api' }), sessionId: payload.session_id };
+      const payload = await api.createSession({ scenario, seed, crop, policy, startDay, initialState: profile?.initialState, weather: profile?.weather });
+      console.info(`[agriwater] backend live: ${scenario} · seed ${seed} · ${policy}`);
+      return { ...normalizeEpisode(payload, { dataSource: 'api' }), sessionId: payload.session_id, policy };
     } catch (error) {
-      if (profile) throw error;
+      if (profile || policy !== 'baseline') throw error;
       console.info(`[agriwater] không có backend FastAPI (${error.message}) — thử episode JSON`);
     }
   }
@@ -77,6 +78,9 @@ let liveSessionId = session.sessionId ?? null;
 
 const store = createStore({
   ...session,
+  policies: [],
+  apiConnected: Boolean(liveSessionId),
+  policy: session.policy ?? 'baseline',
   activeTab: 'overview',
   day: session.dataSource === 'api' ? session.day : Math.min(DEFAULT_OPEN_DAY, session.series.length),
   view: 'monitor',
@@ -91,6 +95,7 @@ const store = createStore({
   pumpOn: true,
   openHeads: [],
   previewAction: null,
+  upcomingWeather: null,
   simulationBusy: false,
 });
 
@@ -115,6 +120,7 @@ async function applyIrrigation(liters, automatic) {
       series: next.series,
       day: next.day,
       source: next.source,
+      upcomingWeather: payload.upcomingWeather ?? null,
       previewAction: null,
       simulationBusy: false,
       ...(finished ? { playing: false } : {}),
@@ -134,6 +140,18 @@ async function applyIrrigation(liters, automatic) {
 const headCount = SCENE.sprinklers.headCount;
 
 const actions = {
+  async refreshPolicies() {
+    try {
+      const meta = await api.getMeta();
+      const policies = meta.policies ?? Object.entries(STRATEGIES).map(([key, label]) => ({
+        key, label, available: (meta.availablePolicies ?? ['baseline']).includes(key),
+      }));
+      store.setState({ policies, apiConnected: true });
+    } catch {
+      store.setState({ policies: [], apiConnected: false });
+    }
+  },
+
   /**
    * Đổi ván. Ở chế độ live thì mở session mới trên server; nếu không thì tải
    * episode JSON tương ứng, cuối cùng mới rơi về mock.
@@ -144,12 +162,13 @@ const actions = {
     const scenario = patch.scenario ?? state.scenario;
     const seed = patch.seed ?? state.seed;
     const crop = patch.crop ?? state.crop;
+    const policy = patch.policy ?? state.policy ?? 'baseline';
     const token = (regenerateToken += 1);
     store.setState({ simulationBusy: true, playing: false, previewAction: null });
     const startDay = keepDay ? state.day : 1;
     let next;
     try {
-      next = await openSession({ scenario, seed, crop, startDay, offline, profile });
+      next = await openSession({ scenario, seed, crop, policy, startDay, offline, profile });
     } catch (error) {
       if (token === regenerateToken) store.setState({ simulationBusy: false });
       if (patch.profile) throw error;
@@ -159,27 +178,52 @@ const actions = {
     if (token !== regenerateToken) return; // đã có người bấm sau, bỏ kết quả cũ
 
     liveSessionId = next.sessionId ?? null;
+    if (liveSessionId && !state.apiConnected) void actions.refreshPolicies();
     store.setState({
       meta: next.meta,
       series: next.series,
       scenario,
       seed,
       crop,
+      policy: next.policy ?? policy,
       source: next.source,
       dataSource: next.dataSource,
       mode: liveSessionId ? 'live' : 'replay',
       day: liveSessionId || !keepDay ? next.day : Math.min(state.day, next.series.length),
       appliedProfile: profile,
+      upcomingWeather: null,
       simulationBusy: false,
       playing: false,
       previewAction: null,
     });
   },
 
+  async selectPolicy(policy) {
+    const label = STRATEGIES[policy];
+    await actions.regenerate({ policy }, { keepDay: false });
+    if (store.getState().policy === policy) {
+      notify(`Đã chuyển chính sách sang ${label}.`);
+    }
+  },
+
   async applyProfile(profile) {
     await actions.regenerate({ scenario: profile.scenario, seed: profile.seed, crop: profile.crop, profile });
     store.setState({ view: 'monitor', activeTab: 'overview' });
-    notify('Đã khởi tạo mô phỏng với cấu hình đã lưu.');
+    notify('Đã mở phiên mô phỏng mới.');
+  },
+
+  async setWeather(mode) {
+    const state = store.getState();
+    if (!liveSessionId || state.simulationBusy || state.day !== state.series.length) return;
+    const token = regenerateToken;
+    store.setState({ simulationBusy: true });
+    try {
+      const payload = await api.setSessionWeather({ sessionId: liveSessionId, day: state.day + 1, mode });
+      if (token !== regenerateToken) return;
+      store.setState({ upcomingWeather: payload.upcomingWeather });
+    } finally {
+      if (token === regenerateToken) store.setState({ simulationBusy: false });
+    }
   },
 
   selectIrrigation(liters) {
@@ -243,6 +287,8 @@ window.addEventListener('keydown', (event) => {
     }
   }
 });
+
+if (!previewMode) void actions.refreshPolicies();
 
 const loader = document.getElementById('loader');
 window.setTimeout(() => loader?.classList.add('is-done'), 520);

@@ -120,14 +120,32 @@
 .field-tag--select { pointer-events: auto; background: #edf2f5eb; }
 .field-tag--spray { border-color: #7698ad; background: #dceff8eb; }
 .field-tag--select:hover { background: var(--sheet); }
-.field-tag__weather {
-  appearance: none;
-  border: 0;
-  border-radius: 3px;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
+.field-weather-control { position: relative; pointer-events: auto; }
+.field-weather-menu {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(280px, calc(100vw - 44px));
+  padding: 10px;
+  border: var(--panel-border);
+  border-radius: 8px;
+  background: var(--sheet);
+  color: var(--ink);
+  box-shadow: var(--panel-shadow);
+  font-size: var(--fs-mini);
 }
+.field-weather-menu label { display: grid; gap: 4px; }
+.field-weather-menu p { margin: 6px 0; }
+.field-weather-menu [role='alert'] { color: var(--alarm-red, #a33430); }
+.field-weather-menu__actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.field-weather-menu :is(select, button) {
+  padding: 4px 7px;
+  border: var(--panel-border);
+  border-radius: 5px;
+  background: var(--sheet);
+}
+.field-weather-menu button[type='submit'] { background: var(--mint); }
 .field-tag .icon { color: var(--accent-blue); width: 12px; height: 12px; }
 .field-readout {
   position: absolute;

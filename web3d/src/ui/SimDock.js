@@ -98,7 +98,17 @@ export function SimDock(store, actions) {
     actions.selectIrrigation(value === 'auto' ? null : Number(value));
   });
 
-  const pill = el('div', { class: 'dock__pill' }, [playButton, speedGroup, waterSelect, moreButton]);
+  let policies;
+  const policySelect = el('select', {
+    class: 'dock__select dock__select--policy',
+    'aria-label': 'Chính sách tưới tự động',
+    title: 'Đổi thuật toán sẽ mở vụ mới',
+  });
+  policySelect.addEventListener('change', () => {
+    void actions.selectPolicy?.(policySelect.value);
+  });
+
+  const pill = el('div', { class: 'dock__pill' }, [playButton, speedGroup, waterSelect, policySelect, moreButton]);
 
   const resetButton = el(
     'button',
@@ -180,6 +190,19 @@ export function SimDock(store, actions) {
         && Boolean(irrigationBlock(state, Number(option.value), SCENE.sprinklers.headCount));
     }
     waterSelect.value = state.previewAction == null ? 'auto' : String(state.previewAction);
+
+    if (policies !== state.policies) {
+      policies = state.policies;
+      policySelect.replaceChildren(...(policies.length ? policies : [
+        { key: 'baseline', label: 'Baseline', available: true },
+      ]).map(({ key, label, available }) => {
+        const option = el('option', { value: key }, available ? label : `${label} · chưa sẵn sàng`);
+        option.disabled = !available;
+        return option;
+      }));
+    }
+    policySelect.value = state.policy ?? 'baseline';
+    policySelect.disabled = state.simulationBusy || !live;
 
     modeSelect.value = state.mode;
   }

@@ -1,5 +1,8 @@
 """Interactive, session-local exploration of the irrigation environment."""
 
+from pathlib import Path
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -15,12 +18,27 @@ from agriwater.dashboard.plots import (
 from agriwater.environment.agriwater_env import AgriWaterEnv
 from agriwater.environment.demo import _record
 
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _resolve_checkpoint(raw_path: str) -> Path:
+    candidate = Path(raw_path)
+    return candidate if candidate.is_absolute() else _REPO_ROOT / candidate
+
+
+@st.cache_resource
+def _load_dqn_agent(path_str: str, mtime_ns: int) -> Any:
+    from agriwater.agents.dqn import DQNAgent
+
+    _ = mtime_ns
+    return DQNAgent.from_checkpoint(path_str)
+
 
 def main() -> None:
-    """Run manual or random actions against the real environment."""
+    """Run manual, random or trained DQN actions against the real environment."""
     st.set_page_config(page_title="AgriWater-RL", page_icon="🌱", layout="wide")
     st.title("🌱 AgriWater-RL")
-    st.caption("Phòng thử nghiệm tưới tiêu · Một bước = một ngày · Chưa huấn luyện thuật toán")
+    st.caption("Phòng thử nghiệm tưới tiêu · Một bước = một ngày · Thủ công / Ngẫu nhiên / DQN")
     config = load_config("environment")
     with st.sidebar:
         st.header("Thiết lập lượt chạy")
@@ -35,6 +53,18 @@ def main() -> None:
             moisture = st.slider("Độ ẩm ban đầu (%)", 0, 100, 50)
             reset = st.form_submit_button("Khởi tạo / Làm lại", type="primary")
         st.caption("Khởi tạo lại sẽ xóa lịch sử trên màn hình. Tải CSV trước nếu cần giữ.")
+        st.divider()
+        policy_mode = st.selectbox(
+            "Thuật toán điều khiển",
+            ["Thủ công / Ngẫu nhiên", "DQN (Deep Q-Network)"],
+        )
+        dqn_path_text = st.text_input("Checkpoint DQN (.pt)", value="models/dqn_best.pt")
+        dqn_path = _resolve_checkpoint(dqn_path_text)
+        dqn_ready = dqn_path.is_file()
+        if dqn_ready:
+            st.success("DQN sẵn sàng (đã tìm thấy checkpoint).")
+        else:
+            st.warning(f"Chưa tìm thấy checkpoint `{dqn_path_text}`.")
         st.info("Thông số vật lý là giả định demo, chưa hiệu chuẩn nông học.")
 
     if reset:
@@ -87,10 +117,43 @@ def main() -> None:
         "Chạy hết với mức tưới này", disabled=sim["done"], use_container_width=True
     )
     random = right.button("Chạy hết ngẫu nhiên", disabled=sim["done"], use_container_width=True)
-    if one or fixed or random:
+    dqn_left, dqn_right = st.columns(2)
+    dqn_one = dqn_left.button(
+        "DQN chạy một ngày",
+        disabled=sim["done"] or not dqn_ready,
+        type="primary" if policy_mode == "DQN (Deep Q-Network)" else "secondary",
+        use_container_width=True,
+    )
+    dqn_all = dqn_right.button(
+        "Chạy hết bằng DQN",
+        disabled=sim["done"] or not dqn_ready,
+        type="primary" if policy_mode == "DQN (Deep Q-Network)" else "secondary",
+        use_container_width=True,
+    )
+    if policy_mode == "DQN (Deep Q-Network)" and dqn_ready and not sim["done"]:
+        preview_agent = _load_dqn_agent(str(dqn_path.resolve()), dqn_path.stat().st_mtime_ns)
+        rec_action = preview_agent.select_action(sim["state"], training=False)
+        st.info(f"DQN gợi ý cho ngày kế tiếp: **tưới {rec_action * 5} L** (action {rec_action}).")
+    if not dqn_ready:
+        st.caption(
+            f"Chưa tìm thấy checkpoint `{dqn_path_text}`. "
+            "Chạy `.venv/Scripts/python.exe -m agriwater.training.train` để huấn luyện DQN."
+        )
+    if one or fixed or random or dqn_one or dqn_all:
         try:
-            for _ in range(1 if one else sim["env"].max_days - len(sim["rows"])):
-                chosen = int(sim["rng"].integers(0, 6)) if random else action // 5
+            dqn_agent = (
+                _load_dqn_agent(str(dqn_path.resolve()), dqn_path.stat().st_mtime_ns)
+                if (dqn_one or dqn_all)
+                else None
+            )
+            steps_to_run = 1 if (one or dqn_one) else sim["env"].max_days - len(sim["rows"])
+            for _ in range(steps_to_run):
+                if dqn_agent is not None:
+                    chosen = dqn_agent.select_action(sim["state"], training=False)
+                elif random:
+                    chosen = int(sim["rng"].integers(0, 6))
+                else:
+                    chosen = action // 5
                 state, reward, terminated, truncated, info = sim["env"].step(chosen)
                 sim["rows"].append(_record(info, chosen, reward, terminated, truncated))
                 sim.update(state=state, info=info, done=terminated or truncated)
@@ -100,6 +163,40 @@ def main() -> None:
             st.error(f"Không thể tiếp tục: {exc}. Hãy kiểm tra cấu hình và khởi tạo lại.")
         else:
             st.rerun()
+
+    q_table_path = Path(__file__).resolve().parents[2] / "models" / "q_table.npz"
+    if q_table_path.exists():
+        q_left, q_right = st.columns(2)
+        q_one = q_left.button(
+            "Chạy một ngày (Q-Learning ε=0)", disabled=sim["done"], use_container_width=True
+        )
+        q_all = q_right.button(
+            "Chạy hết với Q-Learning (ε=0)", disabled=sim["done"], use_container_width=True
+        )
+        if q_one or q_all:
+            try:
+                q_agent = st.session_state.get("q_agent")
+                if q_agent is None:
+                    from agriwater.agents.q_agent import QLearningAgent
+
+                    q_agent = QLearningAgent.load(q_table_path, seed=0)
+                    st.session_state["q_agent"] = q_agent
+                for _ in range(1 if q_one else sim["env"].max_days - len(sim["rows"])):
+                    chosen = q_agent.select_action(sim["state"], training=False)
+                    state, reward, terminated, truncated, info = sim["env"].step(chosen)
+                    sim["rows"].append(_record(info, chosen, reward, terminated, truncated))
+                    sim.update(state=state, info=info, done=terminated or truncated)
+                    if sim["done"]:
+                        break
+            except (ValueError, OSError, NotImplementedError) as exc:
+                st.error(f"Không thể tiếp tục: {exc}. Hãy kiểm tra cấu hình và khởi tạo lại.")
+            else:
+                st.rerun()
+    else:
+        st.caption(
+            "Chưa có checkpoint Q-Learning (`models/q_table.npz`). "
+            "Chạy `python -m agriwater.training.q_learning` để bật demo Q-Learning."
+        )
 
     state, info, rows = sim["state"], sim["info"], sim["rows"]
     frame = records_to_frame(rows)
@@ -158,10 +255,14 @@ def main() -> None:
             x, y = st.columns(2)
             x.bar_chart(frame.set_index("day")[["water_used_liters"]])
             y.bar_chart(frame.set_index("day")[["actual_rain_mm"]])
-            rewards = frame.set_index("day")[["reward"]].assign(cumulative_reward=cumulative_reward(frame))
+            rewards = frame.set_index("day")[["reward"]].assign(
+                cumulative_reward=cumulative_reward(frame)
+            )
             st.line_chart(rewards)
             st.dataframe(
-                pd.DataFrame(component_totals(frame).items(), columns=["Thành phần reward", "Tổng điểm"]),
+                pd.DataFrame(
+                    component_totals(frame).items(), columns=["Thành phần reward", "Tổng điểm"]
+                ),
                 hide_index=True,
             )
         with details:

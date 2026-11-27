@@ -1,8 +1,8 @@
 /**
  * Client của backend FastAPI (`agriwater/api/app.py`).
  *
- * Chỉ có ba việc: mở ván, chạy một ngày, và hỏi xem server có sống không. Mọi
- * con số (độ ẩm, điểm, 6 thành phần) do Python trả về — file này không tính gì.
+ * FastAPI tính các bước mô phỏng và chạy huấn luyện. Client chỉ gửi thiết lập
+ * và chuyển tiếp kết quả JSON.
  *
  * Mặc định gọi `/api/...` để đi qua proxy của Vite (`vite.config.js` →
  * 127.0.0.1:8000). Muốn gọi thẳng server thì đặt `VITE_API_BASE` trong `.env`.
@@ -52,13 +52,33 @@ export async function isAvailable(options = {}) {
   }
 }
 
-/** Mở ván mới, có thể chạy chính sách baseline đến ngày bắt đầu mong muốn. */
-export function createSession({ scenario, seed, crop, initialAction, startDay = 1, initialState, weather }, options = {}) {
+export function getMeta() {
+  return request('/meta', { timeoutMs: 15000 });
+}
+
+export function runExperiment({ scenario, seed, crop, policy, initialState, weather }) {
+  return request('/experiment', {
+    method: 'POST',
+    timeoutMs: 15000,
+    body: { scenario, seed, crop, policy, initial_state: initialState, weather },
+  });
+}
+
+export function startTraining(settings) {
+  return request('/training', { method: 'POST', body: settings });
+}
+
+export function getTraining(id, after = 0) {
+  return request(`/training/${encodeURIComponent(id)}?after=${after}`);
+}
+
+/** Mở ván tương tác mới. */
+export function createSession({ scenario, seed, crop, policy = 'baseline', initialAction, startDay = 1, initialState, weather }, options = {}) {
   return request('/session', {
     ...options,
     method: 'POST',
     body: {
-      scenario, seed, crop, initial_action: initialAction, start_day: startDay,
+      scenario, seed, crop, policy, initial_action: initialAction, start_day: startDay,
       initial_state: initialState, weather,
     },
   });
@@ -70,6 +90,13 @@ export function step({ sessionId, action, automatic = false }, options = {}) {
     ...options,
     method: 'POST',
     body: { session_id: sessionId, action, automatic },
+  });
+}
+
+export function setSessionWeather({ sessionId, day, mode }) {
+  return request('/weather', {
+    method: 'POST',
+    body: { session_id: sessionId, day, mode },
   });
 }
 

@@ -8,11 +8,24 @@ export const STRATEGIES = {
 
 export const observationFields = [
   { key: 'soil_moisture', label: 'Độ ẩm đất (0–1)', min: 0, max: 1, required: true },
-  { key: 'temperature', label: 'Nhiệt độ (°C)', min: 15, max: 45, required: true },
+  { key: 'temperature', label: 'Nhiệt độ (°C)', min: 15, max: 45 },
   { key: 'rain_probability', label: 'Xác suất mưa (0–1)', min: 0, max: 1 },
   { key: 'rain_forecast_mm', label: 'Lượng mưa dự báo (mm)', min: 0, max: 50 },
   { key: 'last_irrigation_liters', label: 'Lượng tưới gần nhất (L)', min: 0, max: 25 },
 ];
+
+export const actualRainField = { key: 'actual_rain_mm', label: 'Lượng mưa thực tế (mm)', min: 0, max: 50 };
+
+const weatherKeys = ['temperature', 'rain_probability', 'rain_forecast_mm', actualRainField.key];
+
+/** Đổi kịch bản cũng đổi nguồn thời tiết ngày đầu, nhưng giữ trạng thái đất và cây. */
+export function switchScenario(profile, scenario) {
+  if (profile.scenario === scenario) return profile;
+  const initialState = Object.fromEntries(
+    Object.entries(profile.initialState).filter(([key]) => !weatherKeys.includes(key)),
+  );
+  return { ...profile, scenario, initialState, weather: undefined };
+}
 
 const weatherLimits = {
   temperature: [15, 45],
@@ -43,7 +56,7 @@ export function validateProfile(profile, meta) {
     || profile.initialState.growth_stage < 0 || profile.initialState.growth_stage >= meta.stages.length) {
     throw new Error('Giống cây, kịch bản, giai đoạn hoặc seed không hợp lệ.');
   }
-  for (const { key, min, max, required, label } of observationFields) {
+  for (const { key, min, max, required, label } of [...observationFields, actualRainField]) {
     const reading = profile.initialState[key];
     if (reading == null && !required) continue;
     if (!Number.isFinite(reading) || reading < min || reading > max) {
