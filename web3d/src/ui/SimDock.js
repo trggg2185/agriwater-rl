@@ -14,7 +14,7 @@ export function SimDock(store, actions) {
   });
   const previous = el('button', {
     class: 'dock__btn', type: 'button', 'aria-label': 'Ngày trước',
-  }, icon('chevron', 'dock__arrow--prev'));
+  }, [icon('chevron', 'dock__arrow--prev'), 'Ngày trước']);
   const nextLabel = el('span', {}, 'Ngày tiếp');
   const next = el('button', {
     class: 'dock__btn is-primary dock__next', type: 'button', 'aria-label': 'Ngày tiếp',
@@ -67,7 +67,7 @@ export function SimDock(store, actions) {
   const moreButton = el(
     'button',
     { class: 'dock__more', type: 'button', 'aria-label': 'Mở rộng điều khiển mô phỏng', 'aria-expanded': 'false' },
-    [icon('chevron')],
+    ['Tùy chọn', icon('chevron')],
   );
 
   // Mức nước thủ công: luôn thấy trong pill thu gọn để có ngay lựa chọn
@@ -108,7 +108,12 @@ export function SimDock(store, actions) {
     void actions.selectPolicy?.(policySelect.value);
   });
 
-  const pill = el('div', { class: 'dock__pill' }, [playButton, speedGroup, waterSelect, policySelect, moreButton]);
+  const strategy = el('div', { class: 'strategy-controls' }, [
+    el('label', {}, ['Mô hình đang dùng', policySelect]),
+    el('small', {}, 'Đổi thuật toán sẽ mở vụ mới.'),
+    el('label', {}, ['Mức tưới ngày tiếp theo', waterSelect]),
+  ]);
+  const pill = el('div', { class: 'dock__pill' }, [playButton, speedGroup, moreButton]);
 
   const resetButton = el(
     'button',
@@ -208,5 +213,5 @@ export function SimDock(store, actions) {
   }
 
   const unsubscribe = store.subscribe(update);
-  return { node, destroy: unsubscribe };
+  return { node, strategy, destroy: unsubscribe };
 }

@@ -48,7 +48,8 @@ export async function downloadReportPdf(lines, chart) {
 }
 
 export function downloadComparisonCsv(rows) {
-  saveCsv('strategy,steps,water_l,estimated_energy_kwh,ideal_ratio,stress_count,rain_penalty_count,delay_penalty_count,cumulative_reward',
-    rows.map(({ algorithm, steps, water, energy, idealRatio, stress, rainPenalty, delayPenalty, reward }) =>
-      [algorithm, steps, water, energy, idealRatio, stress, rainPenalty, delayPenalty, reward].join(',')));
+  saveCsv('strategy,steps,water_l,estimated_energy_kwh,ideal_ratio,stress_count,rain_penalty_count,delay_penalty_count,cumulative_reward,full_days,max_days,outcome,full_water_l,full_ideal_days',
+    rows.map(({ algorithm, steps, water, energy, idealRatio, stress, rainPenalty, delayPenalty, reward, fullRun }) =>
+      [algorithm, steps, water, energy, idealRatio, stress, rainPenalty, delayPenalty, reward,
+        fullRun?.days, fullRun?.maxDays, fullRun?.outcome, fullRun?.water, fullRun?.idealDays].join(',')));
 }

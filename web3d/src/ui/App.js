@@ -36,15 +36,14 @@ export function mountApp(root, store, actions, scene) {
     DeviceHotspots(store, scene),
   );
   root.querySelector('.field__telemetry').append(hud.readout);
-  mount('.field__controls', SimDock(store, appActions));
+  const dock = SimDock(store, appActions);
+  mount('.field__controls', dock);
+  root.querySelector('.field__strategy').append(dock.strategy, hud.automatic);
   mount('.workspace-data', SidePanel(store));
 
-  const fieldName = root.querySelector('#field-title');
   const stage = root.querySelector('.field__stage');
   const unsubscribe = store.subscribe((state) => {
-    const crop = state.meta.crops.find((item) => item.code === state.crop);
     const record = state.series[state.day - 1];
-    fieldName.textContent = crop?.key === 'rice' ? 'Ruộng lúa' : 'Vườn ngô';
     stage.textContent = record ? state.meta.stages[record.stage] : '';
   });
 

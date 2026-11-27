@@ -1,11 +1,9 @@
 import { SCENE } from '../config.js';
-import { STRATEGIES } from '../data/research.js';
 import { fieldIrrigationStatus } from '../utils/irrigationZones.js';
 import { weatherCondition } from '../utils/colors.js';
 import { el, icon } from '../utils/dom.js';
 import { formatNumber } from '../utils/math.js';
 import { fbm, hash2 } from '../utils/noise.js';
-import { POLICY_LABELS } from './ViewTitle.js';
 
 function mistTexture() {
   const canvas = document.createElement('canvas');
@@ -134,16 +132,14 @@ export function FieldHud(store, actions) {
     el('span', { class: 'field-tag' }, [icon('power'), pump]),
   ]);
 
-  const reward = el('span', { class: 'field-stats__value' });
-  const water = el('span', { class: 'field-stats__value' });
-  const policy = el('span', { class: 'field-stats__value' });
-  const stats = el('section', { class: 'field-stats', 'aria-label': 'Bước mô phỏng' }, [
-    el('h3', {}, 'Bước mô phỏng'),
-    el('div', { class: 'field-stats__body' }, [
-      el('div', {}, ['Phần thưởng ', reward]),
-      el('div', {}, ['Hành động ', water]),
-      el('div', {}, ['Chiến lược ', policy]),
-    ]),
+  const moisture = el('strong');
+  const ideal = el('small');
+  const water = el('strong');
+  const total = el('small');
+  const reward = el('small');
+  const stats = el('section', { class: 'field-summary__stats', 'aria-label': 'Bước mô phỏng', 'aria-live': 'polite' }, [
+    el('div', { class: 'field-summary__value' }, ['Độ ẩm đất', moisture, ideal]),
+    el('div', { class: 'field-summary__value' }, ['Nước tưới trong ngày', water, total, reward]),
   ]);
 
   const playing = el('span', { class: 'field-auto__value' });
@@ -188,21 +184,23 @@ export function FieldHud(store, actions) {
     pump.textContent = spraying
       ? state.previewAction != null ? 'Xem thử tưới' : 'Bơm đang tưới'
       : 'Bơm nghỉ';
-    reward.textContent = `${record.reward > 0 ? '+' : ''}${formatNumber(record.reward, 1)}`;
-    water.textContent = `a${record.action} · ${formatNumber(record.waterLiters, 0)} L`;
-    policy.textContent = state.dataSource === 'api'
-      ? state.autoIrrigation ? `${STRATEGIES[state.policy] ?? 'Baseline'} (bước tiếp)` : 'Thủ công (bước tiếp)'
-      : (POLICY_LABELS[state.source?.policy] ?? 'Demo').replace(' (Python)', '');
+    moisture.textContent = `${formatNumber(record.moisture * 100, 1)}%`;
+    ideal.textContent = record.isIdeal ? 'Trong vùng lý tưởng'
+      : record.isStressed ? 'Cây đang bị stress' : 'Ngoài vùng lý tưởng';
+    water.textContent = `${formatNumber(record.waterLiters, 0)} L`;
+    const cumulative = state.series.slice(0, state.day).reduce((sum, item) => sum + item.waterLiters, 0);
+    total.textContent = `${formatNumber(cumulative, 0)} L tích lũy`;
+    reward.textContent = `Thưởng trong ngày ${record.reward > 0 ? '+' : ''}${formatNumber(record.reward, 1)}`;
     auto.disabled = state.dataSource !== 'api' || state.simulationBusy;
-    auto.title = auto.disabled ? 'Chế độ phát lại hiển thị hành động đã ghi trong dữ liệu' : '';
-    const enabled = auto.disabled ? Object.hasOwn(STRATEGIES, state.source?.policy) : state.autoIrrigation;
+    const enabled = state.dataSource === 'api' && state.autoIrrigation;
     playing.textContent = enabled ? 'Bật' : 'Tắt';
     auto.setAttribute('aria-checked', String(Boolean(enabled)));
   });
 
   return {
     node: el('div', { class: 'field-hud' }, [atmosphere, tags]),
-    readout: el('div', { class: 'field-readout' }, [stats, auto]),
+    readout: stats,
+    automatic: auto,
     destroy() {
       document.removeEventListener('pointerdown', dismissOnOutsidePress, true);
       unsub();

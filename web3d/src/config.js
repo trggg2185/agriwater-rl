@@ -59,11 +59,12 @@ export const UI = {
   speeds: [1, 2, 5, 10],
 
   views: [
-    { id: 'environment', label: 'Thiết lập thông số môi trường', shortLabel: 'Thiết lập' },
-    { id: 'training', label: 'Huấn luyện thuật toán RL', shortLabel: 'Huấn luyện' },
-    { id: 'experiment', label: 'Thử nghiệm đa kịch bản', shortLabel: 'Thử nghiệm' },
-    { id: 'compare', label: 'So sánh chiến lược', shortLabel: 'So sánh' },
-    { id: 'monitor', label: 'Báo cáo & Dashboard', shortLabel: 'Báo cáo' },
+    { id: 'monitor', label: 'Ruộng' },
+    { id: 'environment', label: 'Thiết lập' },
+    { id: 'training', label: 'Huấn luyện' },
+    { id: 'experiment', label: 'Thử nghiệm' },
+    { id: 'compare', label: 'So sánh' },
+    { id: 'report', label: 'Báo cáo' },
   ],
 };
 
