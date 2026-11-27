@@ -7,11 +7,19 @@ from typing import Any
 import numpy as np
 
 from agriwater.config import load_config
+from agriwater.environment.observation import (
+    CODE_COUNT,
+    CROP_TYPE,
+    GROWTH_STAGE,
+    IRRIGATION_MAX_LITERS,
+    LAST_IRRIGATION,
+    OBSERVATION_SIZE,
+    RAIN_FORECAST_MAX_MM,
+    RAIN_FORECAST_MM,
+    RAIN_PROBABILITY,
+    SOIL_MOISTURE,
+)
 
-_OBSERVATION_SIZE = 7
-_CODE_COUNT = 3
-_FORECAST_SCALE_MM = np.float32(50.0)
-_IRRIGATION_SCALE_LITERS = np.float32(25.0)
 _ACTIONS = range(6)
 
 
@@ -116,8 +124,8 @@ def _observation(value: Any, label: str) -> np.ndarray:
         raise TypeError(f"{label} must be a numpy.ndarray, got {type(value).__name__}")
     if value.dtype != np.float32:
         raise TypeError(f"{label} must have dtype float32, got {value.dtype}")
-    if value.shape != (_OBSERVATION_SIZE,):
-        raise ValueError(f"{label} must have shape ({_OBSERVATION_SIZE},), got {value.shape}")
+    if value.shape != (OBSERVATION_SIZE,):
+        raise ValueError(f"{label} must have shape ({OBSERVATION_SIZE},), got {value.shape}")
     if not np.all(np.isfinite(value)):
         raise ValueError(f"{label} must contain only finite values")
     if np.any(value < 0.0) or np.any(value > 1.0):
@@ -135,18 +143,20 @@ def _action(value: Any) -> int:
 
 
 def _decoded_code(value: np.float32, label: str) -> int:
-    code = int(round(float(value) * _CODE_COUNT))
-    if not 0 <= code <= _CODE_COUNT or value != np.float32(code / _CODE_COUNT):
-        raise ValueError(f"{label} does not decode to a code in 0..{_CODE_COUNT}")
+    code = int(round(float(value) * CODE_COUNT))
+    if not 0 <= code <= CODE_COUNT or value != np.float32(code / CODE_COUNT):
+        raise ValueError(f"{label} does not decode to a code in 0..{CODE_COUNT}")
     return code
 
 
 def _rain_forecast_mm(observation: np.ndarray) -> np.float32:
-    return np.float32(observation[5]) * _FORECAST_SCALE_MM
+    """Chiều 5 (0–1) → mm, giữ đúng số học float32 như khi so ngưỡng."""
+    return np.float32(observation[RAIN_FORECAST_MM]) * np.float32(RAIN_FORECAST_MAX_MM)
 
 
 def _previous_irrigation_liters(observation: np.ndarray) -> np.float32:
-    return np.float32(observation[6]) * _IRRIGATION_SCALE_LITERS
+    """Chiều 6 (0–1) → lít, cùng lý do float32 như trên."""
+    return np.float32(observation[LAST_IRRIGATION]) * np.float32(IRRIGATION_MAX_LITERS)
 
 
 def calculate_reward(
@@ -156,42 +166,50 @@ def calculate_reward(
     *,
     config: dict[str, Any] | None = None,
 ) -> tuple[float, dict[str, float]]:
-    """Return total and R_health/R_stress/R_water/R_waste/R_rain/R_delay.
+    """c) Reward đa mục tiêu: R = R_health + R_stress + R_water + R_waste + R_rain + R_delay.
 
-    Health and stress use ``next_state``; waste, rain and delay use ``state``.
-    All thresholds are compared in float32 so boundaries match the observation
-    representation exactly.
+    R_health và R_stress đánh giá độ ẩm cuối ngày trong ``next_state``.
+    R_water tính chi phí theo mức tưới. R_waste, R_rain và R_delay phạt
+    tưới khi đất đã ẩm, khi dự báo mưa lớn hoặc khi ngày trước đã tưới nhiều.
+    Ba khoản phạt này dùng ``state`` để phản ánh dữ liệu có lúc ra quyết định.
+    Hệ số đọc từ YAML và các ngưỡng được so sánh bằng float32.
     """
     settings = _reward_settings(config)
     current = _observation(state, "state")
     following = _observation(next_state, "next_state")
     action_index = _action(action)
     for observation, label in ((current, "state"), (following, "next_state")):
-        _decoded_code(observation[0], f"{label}[0] crop_type")
-        _decoded_code(observation[1], f"{label}[1] growth_stage")
+        _decoded_code(observation[CROP_TYPE], f"{label}.crop_type")
+        _decoded_code(observation[GROWTH_STAGE], f"{label}.growth_stage")
 
-    next_stage = _decoded_code(following[1], "next_state[1] growth_stage")
+    # c/R_health: Thưởng nếu độ ẩm cuối ngày đạt vùng lý tưởng của giai đoạn mới.
+    next_stage = _decoded_code(following[GROWTH_STAGE], "next_state.growth_stage")
     ideal_low, ideal_high = settings.ideal_stage_2 if next_stage == 2 else settings.ideal_default
-    moisture = following[2]
+    moisture = following[SOIL_MOISTURE]
     health = settings.health if ideal_low <= moisture <= ideal_high else 0.0
+    # c/R_stress: Phạt độ ẩm cuối ngày thấp hoặc cao hơn ngưỡng stress.
     stress = (
         settings.stress
         if moisture < settings.stress_low or moisture > settings.stress_high
         else 0.0
     )
 
+    # c/R_water: Phạt chi phí tài nguyên tỉ lệ với chỉ số mức tưới.
     water = settings.water_per_action * action_index
     waste = 0.0
     rain = 0.0
     delay = 0.0
     if action_index > 0:
-        if current[2] >= settings.waste_moisture:
+        # c/R_waste: Phạt tưới khi đất trước hành động đã đủ ẩm.
+        if current[SOIL_MOISTURE] >= settings.waste_moisture:
             waste = settings.waste_per_action * action_index
+        # c/R_rain: Phạt tưới khi xác suất và lượng mưa dự báo đều vượt ngưỡng.
         if (
-            current[4] >= settings.rain_probability
+            current[RAIN_PROBABILITY] >= settings.rain_probability
             and _rain_forecast_mm(current) >= settings.rain_forecast_mm
         ):
             rain = settings.rain_per_action * action_index
+        # c/R_delay: Phạt tưới tiếp sau khi lượng tưới ngày trước đạt ngưỡng.
         if _previous_irrigation_liters(current) >= settings.previous_irrigation_liters:
             delay = settings.delay_per_action * action_index
 
@@ -203,4 +221,5 @@ def calculate_reward(
         "R_rain": float(rain),
         "R_delay": float(delay),
     }
+    # c) Cộng sáu thành phần thành một điểm học; trả từng khoản để đối chiếu.
     return float(sum(parts.values())), parts

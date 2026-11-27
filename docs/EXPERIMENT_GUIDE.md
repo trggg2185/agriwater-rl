@@ -16,7 +16,9 @@ huấn luyện, loss, hội tụ hay so sánh thuật toán; các phần đó đ
   còn `null` bắt buộc; không điền 0 để tạo kết quả.
 - Unit test demo dùng environment giả. Phải chạy lại với environment thật sau khi
   chốt YAML.
-- Toàn suite hiện 154 passed, 1 skipped (`check_env`).
+- Dashboard Streamlit đã có, chạy được bằng overlay v0.1 trong bộ nhớ (không sửa YAML);
+  kết quả dashboard là minh họa, không phải nghiệm thu cấu hình.
+- Toàn suite hiện 169 passed, 1 skipped (`check_env`).
 
 ## Lệnh kiểm tra
 
@@ -77,6 +79,19 @@ day, action, water_used_liters, actual_rain_mm, soil_moisture, reward,
 is_ideal, is_stressed, terminated, truncated,
 R_health, R_stress, R_water, R_waste, R_rain, R_delay
 ```
+
+## Dashboard minh họa
+
+Chạy khi YAML còn `null` nhờ overlay v0.1 trong bộ nhớ:
+
+```bash
+python -m streamlit run agriwater/dashboard/app.py
+```
+
+Dashboard cho chọn `scenario`, seed và policy; hiển thị KPI, độ ẩm, nước tưới, mưa,
+reward tích lũy, sáu thành phần reward và cho tải CSV. Không huấn luyện, không sửa
+`configs/*.yaml`. Chi tiết ở [DASHBOARD](DASHBOARD.md). Không dùng kết quả dashboard
+để thay thế `check_env`, demo CLI hay nghiệm thu cấu hình thật.
 
 ## Metric cần tính khi so sánh
 

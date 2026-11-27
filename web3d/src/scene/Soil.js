@@ -1,5 +1,5 @@
 /**
- * Mặt đất trong khay: luống (ridge) và rãnh (furrow) song song chạy dọc trục X.
+ * Luống và rãnh song song chạy dọc trục X, tiếp giáp nền của thửa mở.
  *
  * `ridgeHeight` được export để Crops đặt cây đúng trên đỉnh luống và Sprinklers
  * đặt vòi đúng cao độ — một nguồn hình học duy nhất.
@@ -13,11 +13,7 @@ import { moistureColor } from '../utils/colors.js';
 
 const DRY_COLOR = new THREE.Color('#7b5f47');
 const WET_COLOR = new THREE.Color('#2d1f15');
-/**
- * Cao độ đáy rãnh so với gốc khay.
- * Phải cao hơn mặt trên của thành khay (~0.33) để rãnh không bị mặt trắng của
- * khay cắt qua — đó chính là nguồn nhấp nháy trắng/nâu khi xoay camera.
- */
+/** Cao độ đáy rãnh so với gốc thửa, dùng chung cho đất, cây và mặt nước lúa. */
 export const SOIL_BASE_Y = 0.4;
 
 /** 0 = rãnh, 1 = đỉnh luống. */
@@ -29,7 +25,7 @@ export function ridgeCrest(z) {
   return 0.5 + 0.5 * Math.cos(frac * Math.PI * 2);
 }
 
-/** Cao độ mặt đất tại (x, z) theo toạ độ cục bộ của khay. */
+/** Cao độ mặt đất tại (x, z) theo toạ độ cục bộ của thửa. */
 export function ridgeHeight(x, z) {
   const crest = Math.pow(ridgeCrest(z), 0.62);
   const wobble = (valueNoise(x * 0.3 + 3.1, z * 0.44 + 7.7) - 0.5) * 0.06;

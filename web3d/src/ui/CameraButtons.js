@@ -1,10 +1,10 @@
 import { el, icon } from '../utils/dom.js';
 
-/** Cụm 3 nút tròn: bàn tay (kéo-di chuyển), zoom in, zoom out. */
-export function CameraButtons(store) {
+/** Cụm 3 nút tròn: kéo máy quay, zoom in, zoom out. */
+export function CameraButtons(store, scene) {
   const handButton = el(
     'button',
-    { class: 'camera__btn', type: 'button', 'aria-label': 'Bật chế độ kéo di chuyển', 'aria-pressed': 'false' },
+    { class: 'camera__btn', type: 'button', 'aria-label': 'Kéo hoặc đặt lại máy quay', 'aria-pressed': 'false' },
     [icon('hand')],
   );
   const zoomIn = el('button', { class: 'camera__btn', type: 'button', 'aria-label': 'Phóng to' }, [
@@ -15,18 +15,15 @@ export function CameraButtons(store) {
   ]);
 
   handButton.addEventListener('click', () => {
-    store.setState((state) => ({ handMode: !state.handMode }));
+    const { handMode } = store.getState();
+    store.setState({ handMode: !handMode });
+    if (handMode) scene.reset();
   });
 
-  const zoomBy = (factor) =>
-    store.setState((state) => ({
-      cameraDistance: Math.min(44, Math.max(12, (state.cameraDistance ?? 26) * factor)),
-    }));
+  zoomIn.addEventListener('click', () => scene.zoomBy(0.86));
+  zoomOut.addEventListener('click', () => scene.zoomBy(1.16));
 
-  zoomIn.addEventListener('click', () => zoomBy(0.86));
-  zoomOut.addEventListener('click', () => zoomBy(1.16));
-
-  const node = el('div', { class: 'camera', role: 'group', 'aria-label': 'Điều khiển camera' }, [
+  const node = el('div', { class: 'camera', role: 'group', 'aria-label': 'Điều khiển khung nhìn' }, [
     handButton,
     zoomIn,
     zoomOut,

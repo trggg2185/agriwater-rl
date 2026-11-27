@@ -20,7 +20,8 @@ hướng dẫn triển khai và kiểm thử.
 - configs/scenarios.yaml: đề xuất ba phân phối và ghi giả định sau trao đổi.
 
 Không viết reward/demo thay Minh. Minh phụ trách config.py; gọi API đã thống nhất,
-không tạo loader thứ hai. Không làm Q-Learning/DQN/baseline/train/dashboard tuần này.
+không tạo loader thứ hai. Không làm Q-Learning/DQN/baseline/train tuần này. Dashboard
+minh họa do Minh phụ trách, không phải phần Trưởng cần viết.
 
 ## Thứ tự làm việc
 

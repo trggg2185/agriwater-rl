@@ -14,12 +14,14 @@ Python sử dụng **3.13** theo quyết định của người dùng, thay cho 
 - `agriwater/config.py`: `load_config(name)` đã triển khai và có test.
 - `agriwater/agents/reward.py`: sáu thành phần reward đã triển khai và có test biên.
 - `agriwater/environment/demo.py`: vòng lặp demo, CLI và CSV đã triển khai; unit test
-  dùng environment giả, chờ chạy thật sau khi merge environment.
+  dùng environment giả. Có thể chạy thật qua dashboard overlay; CLI vẫn cần YAML hợp lệ.
 - `agriwater/environment/agriwater_env.py` và `weather.py`: đã merge vào
   `feature/reward-demo`; xem `docs/TRUONG_HANDOFF.md`. `main` có thể chậm hơn nhánh này.
+- `agriwater/dashboard/`: dashboard Streamlit minh họa đã triển khai; dùng overlay v0.1
+  trong bộ nhớ, không sửa YAML. Xem `docs/DASHBOARD.md`.
 - Các khóa vật lý và phân phối weather trong YAML vẫn `null`. Bảng "Đề xuất v0.1"
   bên dưới là đề xuất để chạy thử, **chưa phải cấu hình đã chốt**; không coi `null` là 0.
-- Tại thời điểm cập nhật, nhánh `feature/reward-demo` có 154 passed, 1 skipped;
+- Tại thời điểm cập nhật, nhánh `feature/reward-demo` có 169 passed, 1 skipped;
   skip duy nhất là `check_env` tích hợp vì YAML vật lý còn `null`. Luôn chạy lại
   trên nhánh đang làm.
 
@@ -102,6 +104,22 @@ Thứ tự: giữ state cũ → tưới → weather ngày hiện tại → cân 
 - Stress (`< 0,20` hoặc `> 0,85`) chỉ là tiêu chí reward, không phải chết cây.
 - Nếu cả hai cờ cùng đúng, ưu tiên `terminated=True`.
 - Đây là giả định mô phỏng, chưa hiệu chuẩn; ngưỡng chết phải tách khỏi ngưỡng stress.
+
+## Dashboard minh họa
+
+`agriwater/dashboard/app.py` là dashboard Streamlit để xem động học môi trường và
+reward, **không huấn luyện**. Khi YAML còn `null`, dashboard ghép đề xuất v0.1 vào
+bản sao cấu hình trong bộ nhớ (`demo_config.py`); không ghi đè `configs/*.yaml`.
+
+Ba thay đổi API bổ sung, tương thích ngược phục vụ overlay:
+
+- `AgriWaterEnv(..., config: Mapping | None = None)`.
+- `generate_weather(..., ranges: Mapping | None = None)`.
+- `run_episode(..., *, config=None, weather=None)`.
+
+Không truyền các tham số này thì hành vi cũ giữ nguyên. Observation, action, reward,
+công thức vật lý và schema CSV không đổi. Kết quả dashboard là minh họa, không dùng
+để kết luận tiết kiệm nước hay thay thế nghiệm thu môi trường.
 
 ## Agent và cấu hình
 

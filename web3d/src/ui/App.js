@@ -1,16 +1,10 @@
-/**
- * Lắp ráp toàn bộ lớp UI nổi trên cảnh 3D.
- * Mỗi component chỉ nhận store (và actions khi cần điều khiển dữ liệu).
- */
+/** Gắn các điều khiển vào khung mô phỏng và bảng dữ liệu. */
 
 import { el } from '../utils/dom.js';
-import { createLabels3D } from '../scene/Labels3D.js';
-import { TopBrand } from './TopBrand.js';
-import { TopNav } from './TopNav.js';
-import { WeatherCard } from './WeatherCard.js';
 import { ViewTitle } from './ViewTitle.js';
 import { CameraButtons } from './CameraButtons.js';
 import { DeviceHotspots } from './DeviceHotspots.js';
+import { FieldHud } from './FieldHud.js';
 import { SimDock } from './SimDock.js';
 import { SidePanel } from './SidePanel.js';
 
@@ -28,28 +22,37 @@ export function mountApp(root, store, actions, scene) {
 
   const appActions = { ...actions, notify };
 
-  const parts = [
-    TopBrand(store),
-    TopNav(store),
-    createLabels3D(store, scene),
-    WeatherCard(store),
-    CameraButtons(store),
+  const parts = [];
+  function mount(selector, ...components) {
+    root.querySelector(selector).append(...components.map((component) => component.node));
+    parts.push(...components);
+  }
+  mount('.workspace-heading', ViewTitle(store));
+  const hud = FieldHud(store);
+  mount(
+    '.field__viewport',
+    hud,
+    CameraButtons(store, scene),
     DeviceHotspots(store, scene),
-    ViewTitle(store),
-    SidePanel(store, appActions),
-    SimDock(store, appActions),
-  ];
+  );
+  root.querySelector('.field__telemetry').append(hud.readout);
+  mount('.field__controls', SimDock(store, appActions));
+  mount('.workspace-data', SidePanel(store));
 
-  parts.forEach((part, index) => {
-    part.node.style.setProperty('--d', `${80 + index * 55}ms`);
-    part.node.classList.add('enter');
-    root.append(part.node);
+  const fieldName = root.querySelector('#field-title');
+  const stage = root.querySelector('.field__stage');
+  const unsubscribe = store.subscribe((state) => {
+    const crop = state.meta.crops.find((item) => item.code === state.crop);
+    const record = state.series[state.day - 1];
+    fieldName.textContent = crop?.key === 'rice' ? 'Ruộng lúa' : 'Vườn ngô';
+    stage.textContent = record ? state.meta.stages[record.stage] : '';
   });
 
   return {
     notify,
     destroy() {
       window.clearTimeout(toastTimer);
+      unsubscribe();
       for (const part of parts) part.destroy?.();
     },
   };

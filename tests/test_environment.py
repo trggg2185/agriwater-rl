@@ -187,6 +187,15 @@ def test_termination_truncation_and_render(isolated):
     assert info["soil_moisture"] == 0
 
 
+@pytest.mark.parametrize(("initial_moisture", "action"), [(0.01, 0), (0.94, 5)])
+def test_biological_termination_takes_priority_on_last_day(isolated, initial_moisture, action):
+    env = AgriWaterEnv(max_days=1)
+    env.reset(options={"soil_moisture": initial_moisture, "weather": fixed_weather(days=2)})
+    _, _, terminated, truncated, info = env.step(action)
+    assert info["day"] == 1
+    assert terminated and not truncated
+
+
 def test_stage_and_evaporation_factors(isolated):
     def moisture(crop, stage, temperature):
         env = AgriWaterEnv()
@@ -250,6 +259,14 @@ def test_bad_reset(isolated, options):
 def test_null_config_rejected(isolated):
     isolated[0]["water_balance"]["soil_capacity_liters"] = None
     with pytest.raises(ValueError, match="soil_capacity_liters"):
+        AgriWaterEnv().reset()
+
+
+@pytest.mark.parametrize("section", ["moisture", "initial_state"])
+def test_reset_rejects_config_sections_that_are_not_mappings(isolated, section):
+    config, _ = isolated
+    config[section] = []
+    with pytest.raises(ValueError, match=f"{section} must be a mapping"):
         AgriWaterEnv().reset()
 
 

@@ -1,80 +1,39 @@
-/* Design tokens — nguồn duy nhất cho màu, bo góc, đổ bóng, cỡ chữ. */
-
 :root {
-  /* Cảnh nền */
-  --scene-top: #262b29;
-  --scene-bottom: #313836;
-  --tile: #7b857f;
-  --tile-groove: #4a524e;
-  --plot-edge: #cfdcd4;
-  --soil-dry: #6b5646;
-  --soil-wet: #3b2a1f;
-  --leaf-deep: #4d7a38;
-  --leaf-light: #6fa04a;
+  color-scheme: light;
+  --paper: #f5f7fa;
+  --sheet: #ffffff;
+  --field-wash: #dde7eb;
+  --ink: #0f172a;
+  --muted: #475569;
+  --line: #cbd5e1;
+  --mint: #b7c7cf;
+  --leaf: #334155;
+  --sand: #e2e8f0;
+  --sand-ink: #334155;
+  --panel-bg: var(--sheet);
+  --panel-border: 1px solid var(--line);
+  --panel-title: var(--ink);
+  --panel-value: var(--ink);
+  --panel-label: var(--muted);
+  --panel-shadow: 0 2px 4px #293f4811, 0 7px 16px #293f480b;
+  --panel-radius: 12px;
+  --accent-green: var(--leaf);
+  --accent-blue: #476582;
+  --chart-blue: #668397;
+  --forecast-grey: #d2dadf;
+  --warn-amber: #9a6b22;
+  --alarm-red: #a6453d;
 
-  /* Chữ trên nền tối */
-  --ink-on-dark: #ffffff;
-  --ink-on-dark-dim: rgba(255, 255, 255, 0.6);
-
-  /* Panel */
-  --panel-bg: rgba(250, 251, 250, 0.94);
-  --panel-border: 1px solid rgba(255, 255, 255, 0.6);
-  --panel-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-  --panel-radius: 16px;
-  --panel-title: #1d2621;
-  --panel-label: #8b958f;
-  --panel-value: #1d2621;
-
-  /* Nhấn */
-  --accent-blue: #3b82f6;
-  --chart-blue: #5ea8f0;
-  --accent-green: #2fb344;
-  --forecast-grey: #cfd3d1;
-  --warn-amber: #d9a13b;
-  --alarm-red: #d4574f;
-
-  /* Thẻ thời tiết */
-  --weather-a: #4c93f2;
-  --weather-b: #2a6fdb;
-
-  /* Kính mờ */
-  --glass: rgba(20, 25, 23, 0.65);
-  --glass-strong: rgba(20, 25, 23, 0.82);
-  --glass-border: 1px solid rgba(255, 255, 255, 0.09);
-  --btn-glass: rgba(30, 36, 34, 0.7);
-  --btn-glass-border: 1px solid rgba(255, 255, 255, 0.12);
-
-  /* Cỡ chữ tại 1080p */
-  --fs-mini: 10px;
-  --fs-sm: 11px;
+  --font: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --fs-mini: 11px;
+  --fs-sm: 12px;
   --fs-label: 12px;
   --fs-section: 15px;
   --fs-value: 22px;
-  --fs-value-lg: 26px;
-  --fs-title: 30px;
-
-  /* Chuyển động */
+  --fs-value-lg: 24px;
+  --fs-title: clamp(21px, 3.1vw, 33px);
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --dur: 240ms;
-
-  /* Bố cục co giãn */
-  --panel-left: 67.7%;
-  --panel-right: 2.5%;
-  --panel-top: 5%;
-  --panel-bottom: 6%;
-
-  --font:
-    'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-}
-
-@media (max-width: 1365px) {
-  :root {
-    --panel-left: 63.5%;
-    --panel-right: 2%;
-    --panel-top: 4.5%;
-    --panel-bottom: 5%;
-    --fs-title: 26px;
-    --fs-value: 20px;
-    --fs-value-lg: 23px;
-  }
+  --dur: 180ms;
+  --max-width: 1480px;
 }

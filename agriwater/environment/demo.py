@@ -2,7 +2,7 @@
 
 import argparse
 import csv
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -71,20 +71,32 @@ def _record(
 
 
 def run_episode(
-    scenario: str = "random", seed: int = 42, action: int | None = None
+    scenario: str = "random",
+    seed: int = 42,
+    action: int | None = None,
+    *,
+    config: Mapping[str, Any] | None = None,
+    weather: Sequence[Mapping[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Run one episode without learning and return one record per day.
 
     ``action=None`` samples actions from a dedicated RNG, so the weather
     sequence is unaffected. Fixed actions 0..5 are applied every day.
+
+    ``config`` and ``weather`` are optional in-memory overlays for the
+    dashboard demo; when omitted, the committed YAML is used unchanged.
     """
     _validate_seed(seed)
     _validate_action(action)
     action_rng = np.random.default_rng(seed)
-    env = AgriWaterEnv(scenario=scenario)
+    kwargs: dict[str, Any] = {"scenario": scenario}
+    if config is not None:
+        kwargs["config"] = config
+    env = AgriWaterEnv(**kwargs)
     records: list[dict[str, Any]] = []
     try:
-        env.reset(seed=int(seed))
+        options = None if weather is None else {"weather": list(weather)}
+        env.reset(seed=int(seed), options=options)
         terminated = truncated = False
         while not (terminated or truncated):
             chosen = (

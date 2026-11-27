@@ -1,0 +1,279 @@
+#scene-root .field-spray {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.field-hud, .atmosphere {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.atmosphere {
+  z-index: 1;
+  overflow: hidden;
+  transition: background-color 700ms var(--ease);
+}
+.atmosphere__mist {
+  position: absolute;
+  top: 15%;
+  left: -28%;
+  width: 111%;
+  height: 81%;
+  background: var(--mist-image) center / 100% 100% no-repeat;
+  opacity: 0;
+  transform: rotate(11deg);
+  transition: opacity 850ms var(--ease);
+}
+.atmosphere__mist--back {
+  top: 5%;
+  left: -13%;
+  width: 103%;
+  height: 73%;
+  transform: rotate(23deg) scaleY(.8);
+}
+.atmosphere__sun {
+  position: absolute;
+  inset: 0;
+  opacity: .3;
+  background:
+    radial-gradient(ellipse at 95% -8%, #fffbe8a6, transparent 50%),
+    repeating-conic-gradient(from 207deg at 95% -5%, transparent 0deg, #fff9de60 3deg 6deg, #fff9de15 13deg 17deg, transparent 21deg 27deg);
+  mask-image: linear-gradient(222deg, #000 3%, #0008 46%, transparent 77%);
+  transition: opacity 850ms var(--ease);
+}
+.atmosphere[data-weather='showers'] .atmosphere__mist,
+.atmosphere[data-weather='rain'] .atmosphere__mist,
+.atmosphere[data-weather='storm'] .atmosphere__mist {
+  opacity: .91;
+  animation: mist-drift 14s ease-in-out infinite alternate;
+}
+.atmosphere[data-weather='showers'] .atmosphere__mist--back,
+.atmosphere[data-weather='rain'] .atmosphere__mist--back,
+.atmosphere[data-weather='storm'] .atmosphere__mist--back {
+  opacity: .77;
+  animation-delay: -6s;
+  animation-duration: 20s;
+}
+.atmosphere[data-weather='cloud'] .atmosphere__mist { opacity: .36; }
+.atmosphere[data-weather='showers'] .atmosphere__sun { opacity: .72; }
+.atmosphere[data-weather='rain'] .atmosphere__sun,
+.atmosphere[data-weather='storm'] .atmosphere__sun,
+.atmosphere[data-weather='cloud'] .atmosphere__sun { opacity: 0; }
+@keyframes mist-drift {
+  from { translate: -5% 1%; }
+  to { translate: 9% -4%; }
+}
+
+.atmosphere__rain {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  mask-image: linear-gradient(115deg, #000 15%, #0007 65%, transparent);
+  transition: opacity 700ms var(--ease);
+}
+.atmosphere__rain span {
+  position: absolute;
+  top: -10%;
+  width: 1px;
+  background: linear-gradient(transparent, #eefaffcf);
+  animation: rain-fall 1.4s linear infinite;
+  animation-play-state: paused;
+}
+.atmosphere[data-weather='showers'] .atmosphere__rain { opacity: .49; }
+.atmosphere[data-weather='rain'] .atmosphere__rain { opacity: .65; }
+.atmosphere[data-weather='storm'] .atmosphere__rain { opacity: 1; mask-image: none; }
+.atmosphere[data-weather='showers'] .atmosphere__rain span,
+.atmosphere[data-weather='rain'] .atmosphere__rain span,
+.atmosphere[data-weather='storm'] .atmosphere__rain span { animation-play-state: running; }
+.atmosphere[data-weather='storm'] { background: #33415529; }
+@keyframes rain-fall {
+  from { transform: translate(0, 0) rotate(21deg); }
+  to { transform: translate(-19vw, max(600px, 65vh)) rotate(21deg); }
+}
+
+.field-tags {
+  position: absolute;
+  top: 15px;
+  left: 14px;
+  right: 12px;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.field-tag, .field-stats, .field-auto {
+  border: 1px solid #9caab69c;
+  border-radius: 7px;
+  background: #edf2f3df;
+  color: var(--ink);
+  box-shadow: 0 3px 9px #25334a23;
+  backdrop-filter: blur(10px);
+  font-size: var(--fs-mini);
+}
+.field-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+}
+.field-tag--select { pointer-events: auto; background: #edf2f5eb; }
+.field-tag--spray { border-color: #7698ad; background: #dceff8eb; }
+.field-tag--select:hover { background: var(--sheet); }
+.field-tag__weather {
+  appearance: none;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.field-tag .icon { color: var(--accent-blue); width: 12px; height: 12px; }
+.field-readout {
+  position: absolute;
+  right: 8px;
+  bottom: 9px;
+  z-index: 4;
+  display: flex;
+  align-items: start;
+  gap: 6px;
+  pointer-events: none;
+}
+.field-stats { overflow: hidden; min-width: 133px; }
+.field-stats h3 {
+  margin: 0;
+  padding: 2px 7px;
+  background: #b0c2cf;
+  font-size: 11px;
+  font-weight: 600;
+}
+.field-stats__body { padding: 3px 7px 4px; line-height: 1.45; }
+.field-stats__value { color: var(--sand-ink); font-weight: 600; }
+.field-auto {
+  min-width: 107px;
+  padding: 4px 7px;
+  margin-bottom: 38px;
+  text-align: left;
+  pointer-events: auto;
+}
+.field-auto__row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px; }
+.field-auto__track {
+  width: 30px;
+  height: 16px;
+  padding: 2px;
+  border-radius: 10px;
+  background: #a8b5bf;
+  transition: background-color 180ms var(--ease);
+}
+.field-auto__track::before {
+  content: '';
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--sheet);
+  box-shadow: 0 1px 4px #33434e4a;
+  transition: transform 180ms var(--ease);
+}
+.field-auto:disabled { opacity: 1; cursor: default; }
+.field-auto[aria-checked='true'] .field-auto__track { background: #5f7f94; }
+.field-auto[aria-checked='true'] .field-auto__track::before { transform: translateX(14px); }
+
+.hotspot-marker {
+  display: grid;
+  width: 36px;
+  height: 23px;
+  place-items: center;
+  color: #f3f8fc;
+  border: 1px solid #526881a3;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px #c5d5deaf, inset 0 0 0 3px #64748b8c;
+}
+.hotspot-marker__dot {
+  position: relative;
+  width: 13px;
+  height: 20px;
+  border-radius: 5px 5px 6px 6px;
+  background: linear-gradient(90deg, #536979, #7890a0 48%, #607789);
+  box-shadow: 1px 3px 5px #33415566;
+  transform: translateY(-7px);
+}
+.hotspot-marker__dot::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 6px;
+  border-radius: 50%;
+  background: #425663;
+}
+.hotspot-marker__spray {
+  position: absolute;
+  inset: -25px -38px 0;
+  background: radial-gradient(ellipse, #e4f1f8e8 5%, #d9eef6a9 32%, transparent 69%);
+  opacity: 0;
+  transition: opacity 450ms var(--ease);
+}
+.hotspot-marker.is-on { box-shadow: inset 0 0 0 2px #e2f5ffc4, 0 0 7px #b4deec; }
+.hotspot-marker.is-on .hotspot-marker__spray { opacity: .36; animation: spray 2.1s ease-in-out infinite alternate; }
+@keyframes spray {
+  from { transform: translate(5%, 4%) scale(.78); }
+  to { transform: translate(-11%, -9%) scale(1.17); }
+}
+.hotspot-marker__label, .hotspot-marker__callout {
+  position: absolute;
+  white-space: nowrap;
+  border-radius: 4px;
+}
+.hotspot-marker__label {
+  left: calc(100% + 3px);
+  top: 1px;
+  padding: 0 4px;
+  font-size: 8px;
+  background: #334155dc;
+}
+.hotspot-marker__callout {
+  right: 19px;
+  top: 24px;
+  padding: 3px 6px;
+  background: #f5f7f9eb;
+  color: var(--ink);
+  box-shadow: var(--panel-shadow);
+  font-size: 10px;
+}
+.hotspot-marker.is-controlled .hotspot-marker__callout { display: none; }
+.hotspot-pin .hotspot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.nav__item, .panel__tab, .camera__btn, .dock__btn, .dock__speed, .field-tag--select {
+  transition: background-color 155ms var(--ease), border-color 155ms var(--ease), color 155ms var(--ease), box-shadow 155ms var(--ease);
+}
+.camera__btn:active, .dock__btn:active { box-shadow: inset 0 1px 4px #263e562f; }
+@media (max-width: 540px) {
+  .field-tags { top: 6px; left: 6px; right: 6px; gap: 3px; }
+  .field-tag { padding: 3px 5px; }
+  .field-readout {
+    position: static;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 7px 8px;
+    border-top: var(--panel-border);
+    background: #f2f6f7;
+  }
+  .field-stats { min-width: 119px; }
+  .field-auto { min-width: 93px; margin-bottom: 0; }
+  .hotspot-marker__label, .hotspot-marker__callout { display: none; }
+  .hotspot-marker { transform: scale(.72); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .atmosphere .atmosphere__mist, .hotspot-marker.is-on .hotspot-marker__spray { animation: none; }
+  .atmosphere .atmosphere__rain span { animation-play-state: paused; }
+  .atmosphere, .atmosphere__rain, .hotspot-marker__spray { transition: none; }
+  .atmosphere__mist, .atmosphere__sun, .field-auto__track, .field-auto__track::before,
+  .nav__item, .panel__tab, .camera__btn, .dock__btn, .dock__speed, .field-tag--select {
+    transition: none;
+  }
+}

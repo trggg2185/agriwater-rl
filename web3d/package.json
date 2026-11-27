@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Giao diện 3D/2D cho hệ thống AgriWater-RL",
+  "description": "Dashboard 2D cho hệ thống AgriWater-RL",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -11,9 +11,17 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "chart.js": "^4.6.2",
+    "jspdf": "^4.2.1",
+    "lucide-react": "^1.82.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "three": "^0.169.0"
   },
   "devDependencies": {
+    "autoprefixer": "^10.7.0",
+    "postcss": "^8.5.33",
+    "tailwindcss": "^3.4.19",
     "vite": "^5.4.10",
     "vitest": "^2.1.9"
   }

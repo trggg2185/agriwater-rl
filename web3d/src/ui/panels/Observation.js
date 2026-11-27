@@ -46,7 +46,7 @@ export function createObservation() {
     el(
       'p',
       { class: 'section__hint' },
-      'Giá trị agent nhận mỗi bước; thanh bên cạnh là dạng chuẩn hoá 0–1.',
+      'Trạng thái trước hành động. Các thanh biểu thị giá trị chuẩn hóa 0–1.',
     ),
     el('div', { class: 'obs' }, rows.map((row) => row.row)),
   ]);
@@ -69,26 +69,12 @@ export function createObservation() {
     const stageName = meta.stages[record.stage] ?? `Giai đoạn ${record.stage}`;
     const maxLiters = Math.max(1, ...meta.actionLiters);
 
-    // Lần tưới gần nhất = đợt tưới có nước gần nhất TRƯỚC ngày đang xem.
-    let lastLiters = 0;
-    let lastDay = null;
-    for (let i = visible.length - 2; i >= 0; i -= 1) {
-      if (visible[i].waterLiters > 0) {
-        lastLiters = visible[i].waterLiters;
-        lastDay = visible[i].day;
-        break;
-      }
-    }
-    const daysAgo = lastDay === null ? null : record.day - lastDay;
+    const moisture = record.previousMoisture;
+    const status = moistureState(moisture, { ...meta.moisture, stage: record.stage });
+    const lastLiters = record.lastIrrigation;
 
-    const moisture = moistureState(record.moisture, {
-      idealDefault: meta.moisture.idealDefault,
-      idealStage2: meta.moisture.idealStage2,
-      stressBounds: meta.moisture.stressBounds,
-      stage: record.stage,
-    });
-
-    paint(0, `${cropInfo.label} · mã ${cropInfo.code}`, cropInfo.code / Math.max(1, meta.crops.length - 1));
+    // Mã cây Gymnasium 0–3 được chia cho 3, kể cả khi Web3D chỉ hiển thị hai loại.
+    paint(0, `${cropInfo.label} · mã ${cropInfo.code}`, cropInfo.code / 3);
     paint(
       1,
       `${stageName} · mã ${record.stage}`,
@@ -97,9 +83,9 @@ export function createObservation() {
     );
     paint(
       2,
-      `${formatNumber(record.moisture * 100, 1)} %`,
-      record.moisture,
-      moisture === 'ideal' ? '' : `is-${moisture}`,
+      `${formatNumber(moisture * 100, 1)} %`,
+      moisture,
+      status === 'ideal' ? '' : `is-${status}`,
     );
     paint(
       3,
@@ -111,12 +97,12 @@ export function createObservation() {
     paint(
       5,
       `${formatNumber(record.rainForecastMm, 1)} mm`,
-      record.rainForecastMm / 40,
+      record.rainForecastMm / 50,
       record.rainProbability >= 0.7 && record.rainForecastMm >= 15 ? 'is-info is-strong' : 'is-info',
     );
     paint(
       6,
-      lastLiters > 0 ? `${formatNumber(lastLiters, 0)} L · ${daysAgo} ngày trước` : 'chưa tưới',
+      `${formatNumber(lastLiters, 1)} L`,
       lastLiters / maxLiters,
       lastLiters > 0 ? 'is-info' : '',
     );

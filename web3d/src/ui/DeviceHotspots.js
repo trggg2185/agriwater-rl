@@ -1,111 +1,59 @@
-/**
- * Nút điều khiển gắn TRỰC TIẾP vào vật thể 3D: một nút cho trạm bơm và một nút
- * cho từng đầu phun. Toạ độ lấy từ `scene.onDevices` (Vector3.project mỗi
- * frame), nên xoay/kéo camera thì nút vẫn bám đúng thiết bị.
- *
- * Chỉ hiện ở mục "Điều khiển thiết bị" để không rối cảnh giám sát.
- */
-
 import { SCENE } from '../config.js';
-import { el, icon } from '../utils/dom.js';
-import { zonePlan } from '../utils/zones.js';
+import { el } from '../utils/dom.js';
+import { fieldIrrigationStatus } from '../utils/irrigationZones.js';
 
 export function DeviceHotspots(store, scene) {
-  const node = el('div', { class: 'hotspots', 'aria-hidden': 'false' });
-  const buttons = new Map();
-
-  function isPumpOn(state) {
-    return state.pumpOn !== false;
-  }
-
-  function makeButton(device, index) {
-    const isPump = device.id === 'pump';
-    const button = el(
-      'button',
-      {
-        class: `hotspot${isPump ? ' hotspot--pump' : ''}`,
-        type: 'button',
-        'aria-label': isPump ? 'Bật hoặc tắt bơm' : `Đóng hoặc mở ${device.label}`,
-        'aria-pressed': 'false',
-      },
-      isPump
-        ? [icon('power'), el('span', { class: 'hotspot__text' }, 'Bơm')]
-        : [el('span', { class: 'hotspot__num' }, String(index))],
-    );
-
-    button.addEventListener('click', () => {
-      const state = store.getState();
-      if (isPump) {
-        store.setState({ pumpOn: !isPumpOn(state) });
-        return;
-      }
-      const heads = [...(state.openHeads ?? [])];
-      while (heads.length < index) heads.push(true);
-      heads[index - 1] = heads[index - 1] === false;
-      store.setState({ openHeads: heads });
-    });
-
-    return button;
-  }
-
-  function place(list) {
-    for (const point of list) {
-      const button = buttons.get(point.id);
-      if (!button) continue;
-      button.style.left = `${point.x * 100}%`;
-      button.style.top = `${point.y * 100}%`;
-      button.classList.toggle('is-offscreen', !point.visible);
-    }
-  }
+  const node = el('div', { class: 'hotspots' });
+  const devices = new Map();
 
   function sync(state) {
-    const visible = state.view === 'device';
-    node.classList.toggle('is-visible', visible);
-    const pumpRunning = isPumpOn(state);
-
-    const journey = state.series?.slice(0, Math.max(1, state.day)) ?? [];
-    const record = journey[journey.length - 1];
-    const liters = state.previewAction ?? (record ? record.waterLiters : 0);
-    const plan = zonePlan({
-      liters,
-      day: record ? record.day : state.day,
-      headCount: SCENE.plot.sprinklerCount,
-      actionLiters: state.meta?.actionLiters ?? [],
-    });
-    for (const [id, button] of buttons) {
-      if (id === 'pump') {
-        button.classList.toggle('is-on', pumpRunning);
-        button.setAttribute('aria-pressed', String(pumpRunning));
-        button.disabled = false;
-        continue;
-      }
-      const index = Number(id.split('-')[1]);
-      const open = state.openHeads?.[index] !== false;
-      const inZone = Boolean(plan[index]);
-      const active = open && pumpRunning && inZone && liters > 0;
+    const controls = state.view === 'device';
+    const { pumpOn, liters, openMask } = fieldIrrigationStatus(state, SCENE.sprinklers.headCount);
+    for (const { index, button, marker, status } of devices.values()) {
+      const enabled = state.openHeads?.[index] !== false;
+      const active = openMask[index];
+      button.hidden = !controls;
+      marker.classList.toggle('is-on', active);
+      marker.classList.toggle('is-controlled', controls);
+      status.textContent = `S${index + 1}: ${active ? 'PHUN' : enabled ? 'CHỜ' : 'TẮT'}`;
       button.classList.toggle('is-on', active);
-      button.classList.toggle('is-standby', open && pumpRunning && !inZone && liters > 0);
-      button.classList.toggle('is-closed', !open);
-      button.setAttribute('aria-pressed', String(open));
-      button.disabled = !pumpRunning;
+      button.classList.toggle('is-standby', enabled && pumpOn && !active && liters > 0);
+      button.setAttribute('aria-pressed', String(enabled));
+      button.disabled = state.simulationBusy;
     }
   }
 
-  const detach = scene?.onDevices
-    ? scene.onDevices((list) => {
-        // Tạo nút lần đầu, sau đó chỉ cập nhật vị trí.
-        for (const point of list) {
-          if (buttons.has(point.id)) continue;
-          const index = point.id.startsWith('head-')
-            ? Number(point.id.split('-')[1]) + 1
-            : 0;
-          const button = makeButton(point, index);
-          buttons.set(point.id, button);
-          node.append(button);
-        }
-        place(list);
-      })
-    : () => {};
+  const detach = scene.onDevices((points) => {
+    for (const [index, point] of points.entries()) {
+      if (!devices.has(point.id)) {
+        const button = el('button', {
+          class: 'hotspot', type: 'button', 'aria-label': `Đóng hoặc mở ${point.label.toLowerCase()}`,
+          hidden: true,
+        }, String(index + 1));
+        button.addEventListener('click', () => {
+          const heads = [...(store.getState().openHeads ?? [])];
+          while (heads.length <= index) heads.push(true);
+          heads[index] = !heads[index];
+          store.setState({ openHeads: heads });
+        });
+        const status = el('span', { class: 'hotspot-marker__label' });
+        const marker = el('span', { class: 'hotspot-marker', 'aria-hidden': 'true' }, [
+          el('span', { class: 'hotspot-marker__spray' }),
+          el('span', { class: 'hotspot-marker__dot' }),
+          status,
+          index === 3 && el('span', { class: 'hotspot-marker__callout' }, 'Vòi phun tự động'),
+        ]);
+        const pin = el('div', { class: 'hotspot-pin' }, [marker, button]);
+        devices.set(point.id, { index, button, marker, status, pin });
+        node.append(pin);
+        sync(store.getState());
+      }
+      const { pin } = devices.get(point.id);
+      pin.style.left = `${point.x * 100}%`;
+      pin.style.top = `${point.y * 100}%`;
+      pin.hidden = !point.visible;
+    }
+  });
 
   const unsubscribe = store.subscribe(sync);
   return { node, destroy: () => { unsubscribe(); detach(); } };
