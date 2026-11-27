@@ -1,5 +1,7 @@
 """Interactive, session-local exploration of the irrigation environment."""
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -100,6 +102,40 @@ def main() -> None:
             st.error(f"Không thể tiếp tục: {exc}. Hãy kiểm tra cấu hình và khởi tạo lại.")
         else:
             st.rerun()
+
+    q_table_path = Path(__file__).resolve().parents[2] / "models" / "q_table.npz"
+    if q_table_path.exists():
+        q_left, q_right = st.columns(2)
+        q_one = q_left.button(
+            "Chạy một ngày (Q-Learning ε=0)", disabled=sim["done"], use_container_width=True
+        )
+        q_all = q_right.button(
+            "Chạy hết với Q-Learning (ε=0)", disabled=sim["done"], use_container_width=True
+        )
+        if q_one or q_all:
+            try:
+                q_agent = st.session_state.get("q_agent")
+                if q_agent is None:
+                    from agriwater.agents.q_agent import QLearningAgent
+
+                    q_agent = QLearningAgent.load(q_table_path, seed=0)
+                    st.session_state["q_agent"] = q_agent
+                for _ in range(1 if q_one else sim["env"].max_days - len(sim["rows"])):
+                    chosen = q_agent.select_action(sim["state"], training=False)
+                    state, reward, terminated, truncated, info = sim["env"].step(chosen)
+                    sim["rows"].append(_record(info, chosen, reward, terminated, truncated))
+                    sim.update(state=state, info=info, done=terminated or truncated)
+                    if sim["done"]:
+                        break
+            except (ValueError, OSError, NotImplementedError) as exc:
+                st.error(f"Không thể tiếp tục: {exc}. Hãy kiểm tra cấu hình và khởi tạo lại.")
+            else:
+                st.rerun()
+    else:
+        st.caption(
+            "Chưa có checkpoint Q-Learning (`models/q_table.npz`). "
+            "Chạy `python -m agriwater.training.train` để bật demo Q-Learning."
+        )
 
     state, info, rows = sim["state"], sim["info"], sim["rows"]
     frame = records_to_frame(rows)

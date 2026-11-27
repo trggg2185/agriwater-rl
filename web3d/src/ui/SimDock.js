@@ -98,7 +98,18 @@ export function SimDock(store, actions) {
     actions.selectIrrigation(value === 'auto' ? null : Number(value));
   });
 
-  const pill = el('div', { class: 'dock__pill' }, [playButton, speedGroup, waterSelect, moreButton]);
+  const policySelect = el('select', {
+    class: 'dock__select dock__select--policy',
+    'aria-label': 'Chính sách tưới tự động',
+  }, [
+    el('option', { value: 'baseline' }, 'Policy: Baseline'),
+    el('option', { value: 'q_learning' }, 'Policy: Q-Learning (ε=0)'),
+  ]);
+  policySelect.addEventListener('change', () => {
+    void actions.selectPolicy?.(policySelect.value);
+  });
+
+  const pill = el('div', { class: 'dock__pill' }, [playButton, speedGroup, waterSelect, policySelect, moreButton]);
 
   const resetButton = el(
     'button',
@@ -180,6 +191,9 @@ export function SimDock(store, actions) {
         && Boolean(irrigationBlock(state, Number(option.value), SCENE.sprinklers.headCount));
     }
     waterSelect.value = state.previewAction == null ? 'auto' : String(state.previewAction);
+
+    policySelect.value = state.policy ?? 'baseline';
+    policySelect.disabled = state.simulationBusy || !live;
 
     modeSelect.value = state.mode;
   }

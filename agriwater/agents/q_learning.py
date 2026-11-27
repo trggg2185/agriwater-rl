@@ -1,13 +1,5 @@
-"""Tabular Q-learning interface; no learning algorithm is implemented."""
+"""Tabular Q-learning public export preserving the agent interface contract."""
 
-import numpy as np
+from agriwater.agents.q_agent import QLearningAgent, StateDiscretizer
 
-from agriwater.agents.base_agent import BaseAgent
-
-
-class QLearningAgent(BaseAgent):
-    """Future tabular policy with agreed state discretization."""
-
-    def select_action(self, state: np.ndarray, training: bool = False) -> int:
-        """Choose an action; training controls future exploration."""
-        raise NotImplementedError("Q-learning is not implemented")
+__all__ = ["QLearningAgent", "StateDiscretizer"]
