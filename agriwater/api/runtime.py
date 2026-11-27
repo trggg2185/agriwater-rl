@@ -13,6 +13,7 @@ from typing import Any
 
 import numpy as np
 
+from agriwater.agents.baseline import BaselineAgent
 from agriwater.config import load_config
 from agriwater.environment.agriwater_env import AgriWaterEnv
 from agriwater.environment.observation import (
@@ -41,9 +42,14 @@ BASELINE_ACTION = 4
 SCENARIOS = ("dry", "stormy", "random")
 
 
+_BASELINE_AGENT = BaselineAgent(
+    moisture_threshold=BASELINE_THRESHOLD, irrigation_action=BASELINE_ACTION
+)
+
+
 def baseline_action(observation: np.ndarray) -> int:
-    """Chọn mức tưới của baseline theo độ ẩm trước bước mô phỏng."""
-    return BASELINE_ACTION if decode_observation(observation)["moisture"] < BASELINE_THRESHOLD else 0
+    """Chọn mức tưới bằng BaselineAgent (agriwater/agents/baseline.py)."""
+    return _BASELINE_AGENT.select_action(observation, training=False)
 
 
 def _round(value: Any, digits: int = 6) -> float:
