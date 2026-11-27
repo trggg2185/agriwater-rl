@@ -96,13 +96,13 @@
   position: absolute;
   top: 15px;
   left: 14px;
-  right: 12px;
+  right: 90px;
   z-index: 4;
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
 }
-.field-tag, .field-stats, .field-auto {
+.field-tag, .field-auto {
   border: 1px solid #9caab69c;
   border-radius: 7px;
   background: #edf2f3df;
@@ -147,34 +147,15 @@
 }
 .field-weather-menu button[type='submit'] { background: var(--mint); }
 .field-tag .icon { color: var(--accent-blue); width: 12px; height: 12px; }
-.field-readout {
-  position: absolute;
-  right: 8px;
-  bottom: 9px;
-  z-index: 4;
-  display: flex;
-  align-items: start;
-  gap: 6px;
-  pointer-events: none;
-}
-.field-stats { overflow: hidden; min-width: 133px; }
-.field-stats h3 {
-  margin: 0;
-  padding: 2px 7px;
-  background: #b0c2cf;
-  font-size: 11px;
-  font-weight: 600;
-}
-.field-stats__body { padding: 3px 7px 4px; line-height: 1.45; }
-.field-stats__value { color: var(--sand-ink); font-weight: 600; }
 .field-auto {
-  min-width: 107px;
-  padding: 4px 7px;
-  margin-bottom: 38px;
-  text-align: left;
-  pointer-events: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 8px;
 }
-.field-auto__row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px; }
+.field-auto__row { display: flex; align-items: center; gap: 6px; }
 .field-auto__track {
   width: 30px;
   height: 16px;
@@ -193,7 +174,6 @@
   box-shadow: 0 1px 4px #33434e4a;
   transition: transform 180ms var(--ease);
 }
-.field-auto:disabled { opacity: 1; cursor: default; }
 .field-auto[aria-checked='true'] .field-auto__track { background: #5f7f94; }
 .field-auto[aria-checked='true'] .field-auto__track::before { transform: translateX(14px); }
 
@@ -271,18 +251,8 @@
 }
 .camera__btn:active, .dock__btn:active { box-shadow: inset 0 1px 4px #263e562f; }
 @media (max-width: 540px) {
-  .field-tags { top: 6px; left: 6px; right: 6px; gap: 3px; }
+  .field-tags { top: 6px; left: 6px; right: 77px; gap: 3px; }
   .field-tag { padding: 3px 5px; }
-  .field-readout {
-    position: static;
-    justify-content: space-between;
-    gap: 6px;
-    padding: 7px 8px;
-    border-top: var(--panel-border);
-    background: #f2f6f7;
-  }
-  .field-stats { min-width: 119px; }
-  .field-auto { min-width: 93px; margin-bottom: 0; }
   .hotspot-marker__label, .hotspot-marker__callout { display: none; }
   .hotspot-marker { transform: scale(.72); }
 }

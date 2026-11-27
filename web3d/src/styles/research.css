@@ -2,8 +2,19 @@
   display: block;
   padding: clamp(14px, 2.6vw, 30px);
 }
-.study .viewtitle { margin: 0 0 20px; font-size: clamp(20px, 2.5vw, 28px); }
-.study-report { margin-top: 18px; }
+.study-heading { margin-bottom: 17px; }
+.study-heading .viewtitle { font-size: clamp(20px, 2.5vw, 28px); }
+.study-heading p { margin: 5px 0 0; color: var(--muted); }
+.study-details { margin-top: 16px; }
+.study-details summary { color: var(--leaf); cursor: pointer; font-weight: 600; }
+.study-details[open] > .study-grid { margin-top: 10px; }
+.study-results { margin-top: 22px; }
+.study-results h2 { margin: 0; font-size: var(--fs-section); }
+.study-outcome { margin: 14px 0 0; padding: 9px 12px; background: var(--mint); color: var(--leaf); border-radius: 8px; }
+.study-table--outcomes { margin-top: 10px; table-layout: fixed; }
+.study-table--outcomes td strong { font-size: clamp(15px, 2.3vw, 22px); }
+.study-table--outcomes td small { display: block; color: var(--muted); }
+.study-table--outcomes th, .study-table--outcomes td { overflow-wrap: anywhere; }
 .study-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
@@ -33,7 +44,7 @@
   gap: 8px;
   margin-top: 16px;
 }
-.study-actions button[type='submit'] { background: var(--mint); }
+.study-actions .is-primary { background: var(--mint); }
 .study-actions button:enabled:hover { border-color: var(--leaf); }
 .study-status, .study-error { margin-block: 12px 0; font: 500 13px/1.45 var(--font-body); }
 .study-status { color: var(--panel-label); }

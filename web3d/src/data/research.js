@@ -94,6 +94,19 @@ export function summarize(series, { pumpPowerKw, pumpFlow } = {}) {
   };
 }
 
+export function episodeOverview(run) {
+  const last = run.series.at(-1);
+  const days = last?.day ?? 0;
+  const outcome = last?.terminated ? 'terminated' : last?.truncated ? 'completed' : 'in_progress';
+  return {
+    days,
+    maxDays: run.maxDays ?? (outcome === 'completed' ? days : null),
+    outcome,
+    water: run.series.reduce((sum, day) => sum + day.waterLiters, 0),
+    idealDays: run.series.filter((day) => day.isIdeal).length,
+  };
+}
+
 const conditions = ['temperature', 'rainProbability', 'rainForecastMm', 'actualRainMm'];
 
 export function alignRuns(runs) {
@@ -139,7 +152,7 @@ export function runRow(episode, algorithm, profile, title) {
   return {
     id: crypto.randomUUID(), date: new Date().toISOString(), title, algorithm,
     scenario: episode.scenario, seed: episode.seed, crop: episode.crop,
-    series: episode.series, pumpPowerKw: profile?.pumpPowerKw, pumpFlow: profile?.pumpFlow,
+    series: episode.series, maxDays: episode.meta.maxDays, pumpPowerKw: profile?.pumpPowerKw, pumpFlow: profile?.pumpFlow,
   };
 }
 

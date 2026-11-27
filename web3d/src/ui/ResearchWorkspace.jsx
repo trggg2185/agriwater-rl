@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as api from '../data/apiClient.js';
 import { normalizeEpisode } from '../data/replay.js';
-import { actualRainField, alignRuns, importRun, observationFields, runRow, STRATEGIES, summarize, switchScenario, trainingLog, validateProfile, validateWeather } from '../data/research.js';
+import { actualRainField, alignRuns, episodeOverview, importRun, observationFields, runRow, STRATEGIES, summarize, switchScenario, trainingLog, validateProfile, validateWeather } from '../data/research.js';
 import { downloadComparisonCsv, downloadReportPdf, downloadResultCsv, downloadTrainingCsv } from '../data/reportExport.js';
 import { formatNumber } from '../utils/math.js';
 import { chartCanvas } from './charts/ChartCanvas.js';
@@ -26,8 +26,11 @@ const charts = {
   trainingLoss: ['Learning curve · Loss', (r) => r.loss, {}],
 };
 
-function Section({ title, children }) {
-  return <section className="study panel"><h1 className="viewtitle">{title}</h1>{children}</section>;
+function Section({ title, description, children }) {
+  return <section>
+    <header className="study-heading"><h1 className="viewtitle">{title}</h1>{description && <p>{description}</p>}</header>
+    <div className="study panel">{children}</div>
+  </section>;
 }
 
 function Status({ message, error = false }) {
@@ -107,7 +110,7 @@ export function Environment({ profile, save, state, apply }) {
       setBusy(false);
     }
   }
-  return <Section title="Thiết lập thông số môi trường">
+  return <Section title="Thiết lập ruộng" description="Điều kiện ban đầu cho một vụ mới">
     <form onSubmit={submit}>
       <div className="study-grid">
         <label>Kịch bản thời tiết<select value={draft.scenario} onChange={(e) => {
@@ -119,35 +122,41 @@ export function Environment({ profile, save, state, apply }) {
         <label>Giống cây<select value={draft.crop} onChange={(e) => setValue('crop', Number(e.target.value))}>
           {state.meta.crops.map((crop) => <option key={crop.code} value={crop.code}>{crop.label}</option>)}
         </select></label>
-        <label>Giai đoạn sinh trưởng<select value={draft.initialState.growth_stage} onChange={(e) => setInitial('growth_stage', Number(e.target.value))}>
-          {state.meta.stages.map((name, index) => <option key={name} value={index}>{name}</option>)}
-        </select></label>
-        {[...observationFields, actualRainField].map(({ key, label, min, max, required }) =>
-          <label key={key}>{label}<input type="number" step="any" min={min} max={max} required={required}
-            placeholder={key !== 'last_irrigation_liters' && key !== 'soil_moisture' ? (draft.weather ? 'Theo tệp thời tiết' : 'Theo kịch bản') : undefined}
-            value={draft.initialState[key] ?? ''} onChange={(e) => setInitial(key, readNumber(e.target))} /></label>)}
         <label>Seed<input type="number" min="0" max="4294967295" step="1" required
           value={draft.seed ?? ''} onChange={(e) => setValue('seed', readNumber(e.target))} /></label>
-        <label>Lưu lượng bơm (L/phút)<input type="number" step="any" min=".001"
-          value={draft.pumpFlow ?? ''} onChange={(e) => setValue('pumpFlow', readNumber(e.target))} /></label>
-        <label>Công suất bơm (kW)<input type="number" step="any" min=".001"
-          value={draft.pumpPowerKw ?? ''} onChange={(e) => setValue('pumpPowerKw', readNumber(e.target))} /></label>
-        <label>Tải lên kịch bản<input type="file" accept=".json,application/json" onChange={importProfile} /></label>
+        <label>Độ ẩm đất (0–1)<input type="number" step="any" min="0" max="1" required
+          value={draft.initialState.soil_moisture ?? ''} onChange={(e) => setInitial('soil_moisture', readNumber(e.target))} /></label>
       </div>
-      <p className="study-status">Các giá trị thời tiết nhập tay chỉ áp dụng cho ngày đầu.
-        Để trống để lấy dữ liệu theo kịch bản hoặc tệp đã nạp. Bấm Áp dụng và chạy mô phỏng để bắt đầu phiên mới.</p>
+      <details className="study-details" onInvalid={(event) => { event.currentTarget.open = true; }}><summary>Thông số thêm</summary>
+        <div className="study-grid">
+          <label>Giai đoạn sinh trưởng<select value={draft.initialState.growth_stage} onChange={(e) => setInitial('growth_stage', Number(e.target.value))}>
+            {state.meta.stages.map((name, index) => <option key={name} value={index}>{name}</option>)}
+          </select></label>
+          {[...observationFields.filter(({ key }) => key !== 'soil_moisture'), actualRainField].map(({ key, label, min, max }) =>
+            <label key={key}>{label}<input type="number" step="any" min={min} max={max}
+              placeholder={key !== 'last_irrigation_liters' ? (draft.weather ? 'Theo tệp thời tiết' : 'Theo kịch bản') : undefined}
+              value={draft.initialState[key] ?? ''} onChange={(e) => setInitial(key, readNumber(e.target))} /></label>)}
+          <label>Lưu lượng bơm (L/phút)<input type="number" step="any" min=".001"
+            value={draft.pumpFlow ?? ''} onChange={(e) => setValue('pumpFlow', readNumber(e.target))} /></label>
+          <label>Công suất bơm (kW)<input type="number" step="any" min=".001"
+            value={draft.pumpPowerKw ?? ''} onChange={(e) => setValue('pumpPowerKw', readNumber(e.target))} /></label>
+          <label>Tải lên kịch bản<input type="file" accept=".json,application/json" onChange={importProfile} /></label>
+        </div>
+        <p className="study-status">Các giá trị thời tiết nhập tay chỉ áp dụng cho ngày đầu.
+          Để trống để lấy dữ liệu theo kịch bản hoặc tệp đã nạp.</p>
+      </details>
       {draft.weather && <p className="study-status">Đã nạp {draft.weather.length} bản ghi thời tiết.</p>}
       <Status message={error} error />
       <Status message={message} />
       <div className="study-actions">
         <button type="submit" value="save" disabled={busy}>Lưu thiết lập</button>
-        <button type="submit" value="start" disabled={busy}>{busy ? 'Đang khởi tạo…' : 'Áp dụng và chạy mô phỏng'}</button>
+        <button type="submit" className="is-primary" value="start" disabled={busy}>{busy ? 'Đang khởi tạo…' : 'Áp dụng và chạy mô phỏng'}</button>
       </div>
     </form>
   </Section>;
 }
 
-export function Training({ profile, state, addRun, refreshPolicies }) {
+export function Training({ profile, state, addRun, refreshPolicies, navigate }) {
   const [algorithm, setAlgorithm] = useState('q_learning');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -246,21 +255,25 @@ export function Training({ profile, state, addRun, refreshPolicies }) {
     }
   }
 
-  return <Section title="Huấn luyện thuật toán RL">
+  return <Section title="Huấn luyện mô hình" description="Tạo mô hình để dùng khi tưới tự động">
     <form onSubmit={start}>
       <div className="study-grid">
         <label>Thuật toán<select value={algorithm} disabled={busy} onChange={(event) => {
           setAlgorithm(event.target.value);
           setLearningRate(event.target.value === 'dqn' ? '0.001' : '0.1');
         }}><option value="q_learning">Q-Learning</option><option value="dqn">DQN</option></select></label>
-        <label>Learning Rate (α)<input type="number" min=".000001" max="1" step="any" value={learningRate} onChange={(event) => setLearningRate(event.target.value)} required disabled={busy} /></label>
-        <label>Discount Factor (γ)<input name="gamma" type="number" min="0" max="0.9999999999999999" step="any" defaultValue=".99" required disabled={busy} /></label>
-        <label>Xác suất khám phá ban đầu (ε)<input name="epsilon" type="number" min="0" max="1" step="any" defaultValue="1" required disabled={busy} /></label>
-        <label>Total Timesteps<input name="totalTimesteps" type="number" min="1" max="450000" step="1" defaultValue="30000" required disabled={busy} /></label>
-        <label>Nhật ký huấn luyện CSV<input type="file" accept=".csv,text/csv" onChange={importLog} disabled={busy} /></label>
+        <label>Số bước huấn luyện (Total Timesteps)<input name="totalTimesteps" type="number" min="1" max="450000" step="1" defaultValue="30000" required disabled={busy} /></label>
       </div>
+      <details className="study-details" onInvalid={(event) => { event.currentTarget.open = true; }}><summary>Thông số học và nhập nhật ký</summary>
+        <div className="study-grid">
+          <label>Tốc độ học (α)<input type="number" min=".000001" max="1" step="any" value={learningRate} onChange={(event) => setLearningRate(event.target.value)} required disabled={busy} /></label>
+          <label>Hệ số chiết khấu (γ)<input name="gamma" type="number" min="0" max="0.9999999999999999" step="any" defaultValue=".99" required disabled={busy} /></label>
+          <label>Xác suất khám phá ban đầu (ε)<input name="epsilon" type="number" min="0" max="1" step="any" defaultValue="1" required disabled={busy} /></label>
+          <label>Nhật ký huấn luyện CSV<input type="file" accept=".csv,text/csv" onChange={importLog} disabled={busy} /></label>
+        </div>
+      </details>
       <p className="study-status">
-        {profile ? `Kịch bản ${profile.scenario} · seed ${profile.seed}` : `Kết hợp ba kịch bản · seed ${state.seed}`}.
+        {profile ? `Kịch bản ${state.meta.scenarios.find(({ key }) => key === profile.scenario)?.label ?? profile.scenario} · Seed ${profile.seed}` : `Kết hợp ba kịch bản · seed ${state.seed}`}.
         {' '}Sau khi hoàn tất, mô hình mới sẽ được dùng cho các phiên mở sau đó.
       </p>
       {progress && <div className="study-progress" role="status">
@@ -270,23 +283,27 @@ export function Training({ profile, state, addRun, refreshPolicies }) {
       <Status message={!state.apiConnected && !busy ? 'Chưa kết nối được API huấn luyện.' : ''} />
       <Status message={error} error />
       <Status message={message} />
-      <div className="study-actions"><button type="submit" disabled={busy || !state.apiConnected}>{busy ? 'Đang huấn luyện…' : 'Bắt đầu huấn luyện'}</button></div>
+      <div className="study-actions">
+        <button className="is-primary" type="submit" disabled={busy || !state.apiConnected}>{busy ? 'Đang huấn luyện…' : 'Bắt đầu huấn luyện'}</button>
+        {progress?.status === 'completed' && <button type="button" onClick={() => navigate('monitor')}>Về Ruộng để chọn mô hình</button>}
+      </div>
     </form>
   </Section>;
 }
 
-export function Experiment({ profile, state, addRun }) {
+export function Experiment({ profile, state, addRun, navigate }) {
   const [file, setFile] = useState(null);
   const [policy, setPolicy] = useState('baseline');
   const [scenario, setScenario] = useState(profile?.scenario ?? state.scenario);
   const [seed, setSeed] = useState(profile?.seed ?? state.seed);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [result, setResult] = useState(null);
+  const summary = result && episodeOverview(result);
   async function run(event) {
     event.preventDefault();
     setError('');
-    setMessage('');
+    setResult(null);
     setBusy(true);
     try {
       const inputs = profile ? switchScenario(profile, scenario) : { crop: state.crop };
@@ -297,21 +314,20 @@ export function Experiment({ profile, state, addRun }) {
       const episode = normalizeEpisode(payload);
       const result = runRow(episode, policy, chosen, file?.name ?? chosen.scenario);
       addRun(result);
-      setMessage(`Thử nghiệm ${STRATEGIES[policy]} hoàn tất. Đã lưu ${result.series.length} bước để xem báo cáo.`);
+      setResult(result);
     } catch (issue) {
       setError(issue.message);
     } finally {
       setBusy(false);
     }
   }
-  return <Section title="Thử nghiệm đa kịch bản">
+  return <Section title="Thử nghiệm" description="Chạy một chiến lược từ đầu đến cuối vụ">
     <form onSubmit={run}>
       <div className="study-grid">
         <label>Kịch bản<select value={scenario} disabled={busy} onChange={(e) => setScenario(e.target.value)}>
           {state.meta.scenarios.map(({ key, label }) => <option key={key} value={key}>{label}</option>)}
         </select></label>
         <label>Seed<input type="number" min="0" max="4294967295" step="1" value={seed} required disabled={busy} onChange={(e) => setSeed(e.target.value)} /></label>
-        <label>Nguồn kịch bản thời tiết<input type="file" accept=".json,application/json" disabled={busy} onChange={(e) => setFile(e.target.files[0])} /></label>
         <label>Mô hình<select value={policy} disabled={busy} onChange={(e) => setPolicy(e.target.value)}>
           {Object.entries(STRATEGIES).map(([key, label]) => {
             const status = state.policies.find((item) => item.key === key);
@@ -321,10 +337,13 @@ export function Experiment({ profile, state, addRun }) {
           })}
         </select></label>
       </div>
-      <p className="study-status">Nếu để trống, API dùng thời tiết từ thiết lập đã lưu hoặc sinh theo kịch bản và seed hiện tại. Tệp JSON tùy chọn gồm {state.meta.maxDays + 1} bản ghi có các trường <code>temperature</code>, <code>rain_probability</code>, <code>rain_forecast_mm</code> và <code>actual_rain_mm</code>.</p>
-      <Status message={message} />
+      <details className="study-details"><summary>Dùng tệp thời tiết riêng</summary>
+        <div className="study-grid"><label>Tệp thời tiết JSON<input type="file" accept=".json,application/json" disabled={busy} onChange={(e) => setFile(e.target.files[0])} /></label></div>
+        <p className="study-status">Tệp cần {state.meta.maxDays + 1} bản ghi gồm nhiệt độ, xác suất mưa, mưa dự báo và mưa thực tế.</p>
+      </details>
+      {summary && <p className="study-outcome" role="status"><strong>{STRATEGIES[result.algorithm]} · {outcomeLabel(summary)} · {summary.days} ngày · {formatNumber(summary.water, 0)} L</strong></p>}
       <Status message={error} error />
-      <div className="study-actions"><button disabled={busy || !state.policies.some((item) => item.key === policy && item.available)} type="submit">{busy ? 'Đang chạy thử nghiệm…' : 'Chạy thử nghiệm'}</button></div>
+      <div className="study-actions"><button className="is-primary" disabled={busy || !state.policies.some((item) => item.key === policy && item.available)} type="submit">{busy ? 'Đang chạy thử nghiệm…' : 'Chạy thử nghiệm'}</button>{summary && <button type="button" onClick={() => navigate('compare')}>Mở bảng so sánh</button>}</div>
     </form>
   </Section>;
 }
@@ -333,6 +352,14 @@ function resultLabel(run) {
   const strategy = Object.hasOwn(STRATEGIES, run.algorithm) ? STRATEGIES[run.algorithm] : null;
   if (!strategy) return run.title;
   return run.kind === 'training' ? `${strategy} · ${run.title}` : `${strategy} · ${run.title} · seed ${run.seed}`;
+}
+
+const runDateTime = new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'medium' });
+
+function runOptionLabel(run) {
+  const label = resultLabel(run);
+  const when = Date.parse(run.date);
+  return Number.isFinite(when) ? `${label} · ${runDateTime.format(when)}` : label;
 }
 
 function displayMetric(value, key, unit, digits) {
@@ -355,6 +382,30 @@ function MetricTable({ runs }) {
   </table></div>;
 }
 
+function outcomeLabel({ outcome }) {
+  return { completed: 'Hết vụ', terminated: 'Cây chết', in_progress: 'Đang mô phỏng' }[outcome];
+}
+
+function daysLabel({ days, maxDays }) {
+  return maxDays ? `${days}/${maxDays}` : `${days} ngày`;
+}
+
+function OutcomeTable({ runs }) {
+  const summaries = runs.map(episodeOverview);
+  return <table className="study-table study-table--outcomes">
+    <thead><tr><th scope="col">Chỉ số</th>{runs.map((run) =>
+      <th scope="col" key={run.id}>{STRATEGIES[run.algorithm] ?? run.title}</th>)}</tr></thead>
+    <tbody>
+      <tr><th scope="row">Cây sống đến</th>{summaries.map((summary, index) =>
+        <td key={runs[index].id}><strong>{daysLabel(summary)}</strong><small>{outcomeLabel(summary)}</small></td>)}</tr>
+      <tr><th scope="row">Tổng nước tưới</th>{summaries.map((summary, index) =>
+        <td key={runs[index].id}><strong>{formatNumber(summary.water, 0)} L</strong></td>)}</tr>
+      <tr><th scope="row">Ngày đủ ẩm</th>{summaries.map((summary, index) =>
+        <td key={runs[index].id}><strong>{summary.idealDays}/{summary.days}</strong></td>)}</tr>
+    </tbody>
+  </table>;
+}
+
 const colors = ['#396782', '#946339', '#63548b'];
 
 function ResearchChart({ runs, metric, container }) {
@@ -375,7 +426,7 @@ function ResearchChart({ runs, metric, container }) {
   return <div className="study-chart" ref={container} />;
 }
 
-export function Compare({ runs, addRun }) {
+export function Compare({ runs, addRun, meta, navigate }) {
   const [ids, setIds] = useState(['', '']);
   const [comparison, setComparison] = useState(null);
   const [error, setError] = useState('');
@@ -397,7 +448,7 @@ export function Compare({ runs, addRun }) {
     try {
       const selected = ids.map((id) => runs.find((run) => run.id === id));
       const { length, trimmed } = alignRuns(selected);
-      setComparison({ runs: selected.map((run) => ({ ...run, series: run.series.slice(0, length) })), trimmed, length });
+      setComparison({ fullRuns: selected, runs: selected.map((run) => ({ ...run, series: run.series.slice(0, length) })), trimmed, length });
     } catch (issue) {
       setComparison(null);
       setError(issue.message);
@@ -410,14 +461,24 @@ export function Compare({ runs, addRun }) {
         resultLabel(run),
         ...metricsFor(run).map(([label, value]) => `${label}  ${value}`),
       ]);
-      await downloadReportPdf(['So sánh chiến lược AgriWater-RL', `${comparison.length} bước chung`, ...lines],
+      const full = comparison.fullRuns.map((run) => {
+        const summary = episodeOverview(run);
+        return `${STRATEGIES[run.algorithm]} · ${daysLabel(summary)} · ${outcomeLabel(summary)} · ${summary.water} L cả vụ`;
+      });
+      await downloadReportPdf(['So sánh chiến lược AgriWater-RL', ...full, `Chi tiết ${comparison.length} ngày chung`, ...lines],
         container.current.querySelector('canvas'));
     } catch {
       setError('Không thể xuất báo cáo PDF.');
     }
   }
 
-  return <Section title="So sánh chiến lược">
+  const first = comparison?.fullRuns[0];
+  const condition = first && [
+    meta.crops.find(({ code }) => code === first.crop)?.label,
+    meta.scenarios.find(({ key }) => key === first.scenario)?.label ?? first.scenario,
+    `Seed ${first.seed}`,
+  ].filter(Boolean).join(' · ');
+  return <Section title="So sánh chiến lược" description={condition ?? 'Đối chiếu các chiến lược trên cùng điều kiện ban đầu'}>
     <form onSubmit={compare}>
       <div className="study-grid">
         {ids.map((id, index) => <label key={index}>Chiến lược {index + 1}
@@ -427,7 +488,7 @@ export function Compare({ runs, addRun }) {
           }}>
             <option value="">Chọn kết quả đã lưu</option>
             {runs.map((run) => <option key={run.id} value={run.id}
-              disabled={ids.some((value, slot) => slot !== index && value === run.id)}>{resultLabel(run)}</option>)}
+              disabled={ids.some((value, slot) => slot !== index && value === run.id)}>{runOptionLabel(run)}</option>)}
           </select>
         </label>)}
         <label>Nhập kết quả episode<input type="file" accept=".json,application/json" onChange={loadResult} /></label>
@@ -437,18 +498,29 @@ export function Compare({ runs, addRun }) {
       <div className="study-actions">
         {ids.length < 3 && <button type="button" onClick={() => { setIds([...ids, '']); setComparison(null); }}>+ Chiến lược 3</button>}
         {ids.length === 3 && <button type="button" onClick={() => { setIds(ids.slice(0, 2)); setComparison(null); }}>Bỏ chiến lược 3</button>}
-        <button type="submit" disabled={ids.some((id) => !id)}>Phân tích đối chiếu</button>
+        <button className="is-primary" type="submit" disabled={ids.some((id) => !id)}>Phân tích đối chiếu</button>
+        <button type="button" onClick={() => navigate('experiment')}>Về Thử nghiệm</button>
       </div>
     </form>
     {comparison && <>
-      <Status message={comparison.trimmed ? `Độ dài khác nhau. Đối chiếu ${comparison.length} bước chung.` : 'Dữ liệu so sánh đã sẵn sàng.'} />
-      <MetricTable runs={comparison.runs} />
-      <ResearchChart runs={comparison.runs} metric="moisture" container={container} />
-      <div className="study-chart-key">{comparison.runs.map((run, index) =>
-        <span key={run.id} style={{ color: colors[index] }}>{STRATEGIES[run.algorithm]}</span>)}</div>
+      <div className="study-results">
+        <h2>Kết quả cả vụ</h2>
+        <OutcomeTable runs={comparison.fullRuns} />
+      </div>
+      <div className="study-results">
+        <h2>Độ ẩm theo ngày</h2>
+        {comparison.trimmed && <Status message={`Biểu đồ và chỉ số chi tiết dùng ${comparison.length} ngày chung.`} />}
+        <ResearchChart runs={comparison.runs} metric="moisture" container={container} />
+        <div className="study-chart-key">{comparison.runs.map((run, index) =>
+          <span key={run.id} style={{ color: colors[index] }}>{STRATEGIES[run.algorithm]}</span>)}</div>
+      </div>
+      <details className="study-details"><summary>Chỉ số chi tiết · {comparison.length} ngày</summary>
+        <MetricTable runs={comparison.runs} />
+      </details>
       <div className="study-actions">
-        <button type="button" onClick={() => downloadComparisonCsv(comparison.runs.map((run) => ({
+        <button type="button" onClick={() => downloadComparisonCsv(comparison.runs.map((run, index) => ({
           algorithm: run.algorithm, steps: run.series.length, ...summarize(run.series, run),
+          fullRun: episodeOverview(comparison.fullRuns[index]),
         })))}>Xuất CSV đối chiếu</button>
         <button type="button" onClick={exportPdf}>Xuất PDF đối chiếu</button>
       </div>
@@ -476,7 +548,7 @@ export function Report({ runs, state }) {
     event.preventDefault();
     setError('');
     const current = state.dataSource === 'mock' ? null : {
-      id: 'current', title: 'Phiên đang xem', series: state.series.slice(0, state.day),
+      id: 'current', title: 'Phiên đang xem', series: state.series.slice(0, state.day), maxDays: state.meta.maxDays,
       pumpPowerKw: state.appliedProfile?.pumpPowerKw, pumpFlow: state.appliedProfile?.pumpFlow,
     };
     const run = source === 'current' && !from && !to ? current : datedRuns.find((row) => row.id === source);
@@ -504,31 +576,39 @@ export function Report({ runs, state }) {
       setExporting(false);
     }
   }
-  return <section className="study panel study-report" aria-labelledby="report-title">
-    <h2 id="report-title" className="viewtitle">Báo cáo kết quả</h2>
+  return <Section title="Báo cáo kết quả" description="Xem biểu đồ và xuất số liệu của một lượt">
     <form onSubmit={show}>
       <div className="study-grid">
-        <label>Từ ngày lưu kết quả<input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setSource(''); }} /></label>
-        <label>Đến ngày lưu kết quả<input type="date" value={to} onChange={(e) => { setTo(e.target.value); setSource(''); }} /></label>
         <label>Nguồn kết quả<select value={source} onChange={(e) => setSource(e.target.value)}>
           <option value="">Chọn kết quả</option>
           {!from && !to && state.dataSource !== 'mock' && <option value="current">Phiên đang xem</option>}
-          {datedRuns.map((run) => <option key={run.id} value={run.id}>{resultLabel(run)}</option>)}
+          {datedRuns.map((run) => <option key={run.id} value={run.id}>{runOptionLabel(run)}</option>)}
         </select></label>
         <label>Loại đồ thị<select value={selectedMetric} onChange={(e) => setMetric(e.target.value)}>
           {metrics.map((key) => <option key={key} value={key}>{charts[key][0]}</option>)}
         </select></label>
       </div>
-      <div className="study-actions"><button type="submit">Xem dữ liệu</button></div>
+      <details className="study-details">
+        <summary>Lọc theo ngày lưu kết quả</summary>
+        <div className="study-grid">
+          <label>Từ ngày lưu kết quả<input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setSource(''); }} /></label>
+          <label>Đến ngày lưu kết quả<input type="date" value={to} onChange={(e) => { setTo(e.target.value); setSource(''); }} /></label>
+        </div>
+      </details>
+      <div className="study-actions"><button className="is-primary" type="submit">Xem dữ liệu</button></div>
     </form>
     <Status message={error} error />
     {report && <>
-      {report.runs[0].kind !== 'training' && <MetricTable runs={report.runs} />}
+      {report.runs[0].kind !== 'training' && <div className="study-results">
+        <h2>Tóm tắt lượt chạy</h2>
+        <OutcomeTable runs={report.runs} />
+        <details className="study-details"><summary>Chỉ số chi tiết</summary><MetricTable runs={report.runs} /></details>
+      </div>}
       <ResearchChart runs={report.runs} metric={report.metric} container={container} />
       <div className="study-actions">
         <button type="button" onClick={() => (report.runs[0].kind === 'training' ? downloadTrainingCsv : downloadResultCsv)(report.runs[0])}>Xuất CSV</button>
         <button type="button" disabled={exporting} onClick={exportPdf}>Xuất báo cáo PDF</button>
       </div>
     </>}
-  </section>;
+  </Section>;
 }

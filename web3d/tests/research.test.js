@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { alignRuns, summarize, switchScenario, trainingLog, validateWeather } from '../src/data/research.js';
+import { alignRuns, episodeOverview, summarize, switchScenario, trainingLog, validateWeather } from '../src/data/research.js';
 
 const weather = { temperature: 29, rainProbability: .5, rainForecastMm: 8, actualRainMm: 2 };
 const first = {
@@ -47,4 +47,12 @@ it('đổi kịch bản loại bỏ thời tiết cũ và giữ thiết lập đ
     initialState: { soil_moisture: .45, growth_stage: 1, last_irrigation_liters: 5 },
   });
   expect(switchScenario(profile, 'dry')).toBe(profile);
+});
+
+it('giữ tổng cả vụ và phân biệt kết thúc sinh học với hết vụ khi so theo ngày chung', () => {
+  const complete = { series: [first, { ...second, truncated: true }] };
+  const stopped = { maxDays: 2, series: [{ ...first, terminated: true }] };
+  expect(episodeOverview(complete)).toEqual({ days: 2, maxDays: 2, outcome: 'completed', water: 15, idealDays: 1 });
+  expect(episodeOverview(stopped)).toEqual({ days: 1, maxDays: 2, outcome: 'terminated', water: 10, idealDays: 1 });
+  expect(episodeOverview({ series: stopped.series }).maxDays).toBeNull();
 });
