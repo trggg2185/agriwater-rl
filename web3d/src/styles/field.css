@@ -217,19 +217,10 @@
   from { transform: translate(5%, 4%) scale(.78); }
   to { transform: translate(-11%, -9%) scale(1.17); }
 }
-.hotspot-marker__label, .hotspot-marker__callout {
+.hotspot-marker__callout {
   position: absolute;
   white-space: nowrap;
   border-radius: 4px;
-}
-.hotspot-marker__label {
-  left: calc(100% + 3px);
-  top: 1px;
-  padding: 0 4px;
-  font-size: 8px;
-  background: #334155dc;
-}
-.hotspot-marker__callout {
   right: 19px;
   top: 24px;
   padding: 3px 6px;
@@ -253,7 +244,7 @@
 @media (max-width: 540px) {
   .field-tags { top: 6px; left: 6px; right: 77px; gap: 3px; }
   .field-tag { padding: 3px 5px; }
-  .hotspot-marker__label, .hotspot-marker__callout { display: none; }
+  .hotspot-marker__callout { display: none; }
   .hotspot-marker { transform: scale(.72); }
 }
 @media (prefers-reduced-motion: reduce) {
