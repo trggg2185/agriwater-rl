@@ -2,6 +2,7 @@ import { el } from '../utils/dom.js';
 
 /** Nhãn cho nguồn dữ liệu (xem data/replay.js và data/apiClient.js). */
 export const POLICY_LABELS = {
+  dqn: 'DQN (Python)',
   baseline: 'Baseline (Python)',
   random: 'Ngẫu nhiên (Python)',
   fixed: 'Cố định (Python)',

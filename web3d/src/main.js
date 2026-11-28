@@ -41,11 +41,19 @@ const previewMode = new URLSearchParams(window.location.search).get('preview') =
 /** Ván đang chạy trên server; `null` = không ở chế độ live. */
 let notify = () => {};
 
-async function openSession({ scenario, seed, crop, startDay = 1, offline = false, profile }) {
+async function openSession({ scenario, seed, crop, policy, startDay = 1, offline = false, profile }) {
   if (!offline) {
     try {
-      const payload = await api.createSession({ scenario, seed, crop, startDay, initialState: profile?.initialState, weather: profile?.weather });
-      console.info(`[agriwater] backend live: ${scenario} · seed ${seed}`);
+      let chosenPolicy = policy;
+      if (!chosenPolicy) {
+        const metaResp = await api.getMeta();
+        chosenPolicy = metaResp?.meta?.dqnAvailable ? 'dqn' : 'baseline';
+      }
+      const payload = await api.createSession({
+        scenario, seed, crop, policy: chosenPolicy, startDay,
+        initialState: profile?.initialState, weather: profile?.weather,
+      });
+      console.info(`[agriwater] backend live (${chosenPolicy}): ${scenario} · seed ${seed}`);
       return { ...normalizeEpisode(payload, { dataSource: 'api' }), sessionId: payload.session_id };
     } catch (error) {
       if (profile) throw error;
@@ -77,6 +85,7 @@ let liveSessionId = session.sessionId ?? null;
 
 const store = createStore({
   ...session,
+  policy: session.source?.policy === 'dqn' ? 'dqn' : 'baseline',
   activeTab: 'overview',
   day: session.dataSource === 'api' ? session.day : Math.min(DEFAULT_OPEN_DAY, session.series.length),
   view: 'monitor',
@@ -144,12 +153,13 @@ const actions = {
     const scenario = patch.scenario ?? state.scenario;
     const seed = patch.seed ?? state.seed;
     const crop = patch.crop ?? state.crop;
+    const policy = patch.policy ?? state.policy;
     const token = (regenerateToken += 1);
     store.setState({ simulationBusy: true, playing: false, previewAction: null });
     const startDay = keepDay ? state.day : 1;
     let next;
     try {
-      next = await openSession({ scenario, seed, crop, startDay, offline, profile });
+      next = await openSession({ scenario, seed, crop, policy, startDay, offline, profile });
     } catch (error) {
       if (token === regenerateToken) store.setState({ simulationBusy: false });
       if (patch.profile) throw error;
@@ -165,6 +175,7 @@ const actions = {
       scenario,
       seed,
       crop,
+      policy: next.source?.policy === 'dqn' ? 'dqn' : policy,
       source: next.source,
       dataSource: next.dataSource,
       mode: liveSessionId ? 'live' : 'replay',
@@ -174,6 +185,12 @@ const actions = {
       playing: false,
       previewAction: null,
     });
+  },
+
+  onDqnTrained() {
+    store.setState((state) => ({
+      meta: { ...state.meta, dqnAvailable: true },
+    }));
   },
 
   async applyProfile(profile) {

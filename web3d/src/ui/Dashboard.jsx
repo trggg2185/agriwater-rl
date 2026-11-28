@@ -73,7 +73,7 @@ export function Dashboard({ store, actions }) {
           <div className="workspace-data min-w-0" />
         </div>
         {view === 'environment' && <Environment profile={profile} save={saveProfile} state={state} apply={actions.applyProfile} />}
-        {view === 'training' && <Training profile={profile} addRun={addRun} />}
+        {view === 'training' && <Training profile={profile} state={state} addRun={addRun} onDqnTrained={actions.onDqnTrained} />}
         {view === 'experiment' && <Experiment profile={profile} state={state} addRun={addRun} />}
         {view === 'compare' && <Compare runs={runs.filter((run) => run.kind !== 'training')} addRun={addRun} />}
         {view === 'monitor' && <Report runs={runs} state={state} />}

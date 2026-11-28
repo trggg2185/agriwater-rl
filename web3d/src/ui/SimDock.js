@@ -98,7 +98,21 @@ export function SimDock(store, actions) {
     actions.selectIrrigation(value === 'auto' ? null : Number(value));
   });
 
-  const pill = el('div', { class: 'dock__pill' }, [playButton, speedGroup, waterSelect, moreButton]);
+  // Bộ chọn chính sách điều khiển tự động khi nối backend (DQN / Baseline).
+  const policySelect = el('select', {
+    class: 'dock__select',
+    'aria-label': 'Chiến lược điều khiển',
+  }, [
+    el('option', { value: 'dqn' }, 'DQN (RL)'),
+    el('option', { value: 'baseline' }, 'Baseline'),
+  ]);
+  policySelect.addEventListener('change', () => {
+    void actions.regenerate({ policy: policySelect.value }, { keepDay: false });
+  });
+
+  const pill = el('div', { class: 'dock__pill' }, [
+    playButton, speedGroup, policySelect, waterSelect, moreButton,
+  ]);
 
   const resetButton = el(
     'button',
@@ -171,8 +185,18 @@ export function SimDock(store, actions) {
     if (!waterBuilt || waterSelect.options.length !== actionLiters.length + 1) {
       buildWaterOptions(actionLiters);
     }
+    const dqnReady = Boolean(state.meta?.dqnAvailable);
+    const activePolicy = state.policy === 'dqn' ? 'dqn' : 'baseline';
+    policySelect.options[0].disabled = !dqnReady;
+    policySelect.options[0].textContent = dqnReady ? 'DQN (RL)' : 'DQN (chưa có model)';
+    policySelect.value = dqnReady ? activePolicy : 'baseline';
+    policySelect.disabled = !live || state.simulationBusy;
+
     waterSelect.options[0].textContent = live
-      ? (hardwareBlock ? 'Tưới: tạm khóa' : state.autoIrrigation ? 'Tưới: tự động' : 'Tưới: không tưới')
+      ? (hardwareBlock ? 'Tưới: tạm khóa'
+        : state.autoIrrigation
+          ? (activePolicy === 'dqn' ? 'Tưới: DQN tự động' : 'Tưới: Baseline tự động')
+          : 'Tưới: không tưới')
       : 'Tưới: theo dữ liệu';
     waterSelect.disabled = state.simulationBusy || historical || finished;
     for (const option of waterSelect.options) {

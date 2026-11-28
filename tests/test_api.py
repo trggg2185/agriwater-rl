@@ -210,3 +210,42 @@ def test_session_uses_initial_observation_and_uploaded_weather() -> None:
     result = client.post("/api/step", json={"session_id": response.json()["session_id"], "action": 0})
     assert result.json()["series"][-1]["temperature"] == pytest.approx(29)
     assert client.post("/api/session", json={"weather": weather[:-1]}).status_code == 422
+
+
+def test_dqn_session_step_and_training_endpoints(tmp_path, monkeypatch) -> None:
+    ckpt = tmp_path / "dqn_test.pt"
+    monkeypatch.setattr(runtime, "DEFAULT_DQN_MODEL", ckpt)
+    runtime.clear_dqn_cache()
+
+    assert client.get("/api/meta").json()["meta"]["dqnAvailable"] is False
+    assert client.post("/api/session", json={"policy": "dqn"}).status_code == 503
+
+    trained = client.post(
+        "/api/train/dqn",
+        json={"scenario": "dry", "episodes": 5, "learning_rate": 0.005, "gamma": 0.99, "seed": 7},
+    )
+    assert trained.status_code == 200, trained.text
+    train_body = trained.json()
+    assert train_body["algorithm"] == "dqn"
+    assert train_body["dqn_available"] is True
+    assert len(train_body["series"]) == 5
+    assert ckpt.is_file()
+    assert client.get("/api/meta").json()["meta"]["dqnAvailable"] is True
+
+    session_resp = client.post(
+        "/api/session",
+        json={"scenario": "dry", "seed": 42, "crop": 1, "policy": "dqn", "start_day": 5},
+    )
+    assert session_resp.status_code == 200, session_resp.text
+    body = session_resp.json()
+    assert body["source"]["policy"] == "dqn"
+    assert len(body["series"]) == 5
+
+    step_resp = client.post(
+        "/api/step",
+        json={"session_id": body["session_id"], "action": 0, "automatic": True},
+    )
+    assert step_resp.status_code == 200
+    assert step_resp.json()["source"]["policy"] == "dqn"
+    assert len(step_resp.json()["series"]) == 6
+    runtime.clear_dqn_cache()

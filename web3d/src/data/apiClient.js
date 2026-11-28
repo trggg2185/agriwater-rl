@@ -52,13 +52,21 @@ export async function isAvailable(options = {}) {
   }
 }
 
-/** Mở ván mới, có thể chạy chính sách baseline đến ngày bắt đầu mong muốn. */
-export function createSession({ scenario, seed, crop, initialAction, startDay = 1, initialState, weather }, options = {}) {
+/** Lấy metadata cấu hình môi trường và trạng thái checkpoint DQN. */
+export function getMeta(options = {}) {
+  return request('/meta', { ...options, timeoutMs: options.timeoutMs ?? 1500 });
+}
+
+/** Mở ván mới, có thể chạy chính sách baseline hoặc dqn đến ngày bắt đầu mong muốn. */
+export function createSession(
+  { scenario, seed, crop, policy, initialAction, startDay = 1, initialState, weather },
+  options = {},
+) {
   return request('/session', {
     ...options,
     method: 'POST',
     body: {
-      scenario, seed, crop, initial_action: initialAction, start_day: startDay,
+      scenario, seed, crop, policy, initial_action: initialAction, start_day: startDay,
       initial_state: initialState, weather,
     },
   });
@@ -70,6 +78,26 @@ export function step({ sessionId, action, automatic = false }, options = {}) {
     ...options,
     method: 'POST',
     body: { session_id: sessionId, action, automatic },
+  });
+}
+
+/** Huấn luyện DQN trực tiếp trên backend FastAPI và trả về learning curve. */
+export function trainDqn(
+  { scenario = 'mixed', episodes = 50, learningRate = 0.001, gamma = 0.99, epsilonStart = 1.0, seed = 42 },
+  options = {},
+) {
+  return request('/train/dqn', {
+    timeoutMs: 120000,
+    ...options,
+    method: 'POST',
+    body: {
+      scenario,
+      episodes,
+      learning_rate: learningRate,
+      gamma,
+      epsilon_start: epsilonStart,
+      seed,
+    },
   });
 }
 

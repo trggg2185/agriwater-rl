@@ -144,8 +144,13 @@ export function Environment({ profile, save, state, apply }) {
   </Section>;
 }
 
-export function Training({ profile, addRun }) {
-  const [algorithm, setAlgorithm] = useState('q_learning');
+export function Training({ profile, state, addRun, onDqnTrained }) {
+  const [algorithm, setAlgorithm] = useState('dqn');
+  const [learningRate, setLearningRate] = useState(0.001);
+  const [gamma, setGamma] = useState(0.99);
+  const [epsilon, setEpsilon] = useState(1.0);
+  const [episodes, setEpisodes] = useState(50);
+  const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -167,44 +172,103 @@ export function Training({ profile, addRun }) {
     }
   }
 
+  async function startTraining(event) {
+    event.preventDefault();
+    if (algorithm !== 'dqn') return;
+    setBusy(true);
+    setMessage('');
+    setError('');
+    try {
+      const scenario = profile?.scenario ?? 'mixed';
+      const seed = profile?.seed ?? state?.seed ?? 42;
+      const result = await api.trainDqn({
+        scenario,
+        episodes: Number(episodes),
+        learningRate: Number(learningRate),
+        gamma: Number(gamma),
+        epsilonStart: Number(epsilon),
+        seed,
+      });
+      addRun({
+        id: crypto.randomUUID(),
+        title: `DQN (${result.episodes} tập · ${scenario})`,
+        algorithm: 'dqn',
+        kind: 'training',
+        date: new Date().toISOString(),
+        series: result.series,
+      });
+      onDqnTrained?.();
+      const valText = result.best_val_reward != null
+        ? ` · Validation tốt nhất: ${formatNumber(result.best_val_reward, 1)} (tập ${result.best_episode})`
+        : '';
+      setMessage(`Huấn luyện DQN hoàn tất (${result.episodes} tập${valText}). Checkpoint đã cập nhật; mở Báo cáo kết quả để xem Learning curve.`);
+    } catch (issue) {
+      setError(issue.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const canTrain = algorithm === 'dqn' && !busy;
   return <Section title="Huấn luyện thuật toán RL">
-    <form>
+    <form onSubmit={startTraining}>
       <div className="study-grid">
-        <label>Thuật toán<select value={algorithm} onChange={(event) => setAlgorithm(event.target.value)}><option value="q_learning">Q-Learning</option><option value="dqn">DQN</option></select></label>
-        <label>Learning Rate (α)<input type="number" min=".000001" max="1" step="any" required /></label>
-        <label>Discount Factor (γ)<input type="number" min="0" max="1" step="any" defaultValue=".99" required /></label>
-        <label>Xác suất khám phá (ε)<input type="number" min="0" max="1" step="any" /></label>
-        <label>Total Timesteps<input type="number" min="1" step="1" required /></label>
-        <label>Nhật ký huấn luyện CSV<input type="file" accept=".csv,text/csv" onChange={importLog} /></label>
+        <label>Thuật toán<select value={algorithm} disabled={busy} onChange={(event) => setAlgorithm(event.target.value)}>
+          <option value="dqn">DQN</option>
+          <option value="q_learning">Q-Learning</option>
+        </select></label>
+        <label>Learning Rate (α)<input type="number" min=".000001" max="1" step="any" required disabled={busy}
+          value={learningRate} onChange={(e) => setLearningRate(e.target.value)} /></label>
+        <label>Discount Factor (γ)<input type="number" min="0" max=".9999" step="any" required disabled={busy}
+          value={gamma} onChange={(e) => setGamma(e.target.value)} /></label>
+        <label>Xác suất khám phá đầu (ε)<input type="number" min="0" max="1" step="any" required disabled={busy}
+          value={epsilon} onChange={(e) => setEpsilon(e.target.value)} /></label>
+        <label>Số tập huấn luyện (Episodes)<input type="number" min="5" max="2000" step="1" required disabled={busy}
+          value={episodes} onChange={(e) => setEpisodes(e.target.value)} /></label>
+        <label>Nhật ký huấn luyện CSV<input type="file" accept=".csv,text/csv" disabled={busy} onChange={importLog} /></label>
       </div>
-      <Status message={profile ? 'Chưa kết nối dịch vụ huấn luyện Q-Learning và DQN.' : 'Cần lưu thiết lập môi trường và kết nối dịch vụ huấn luyện.'} />
+      <Status message={algorithm === 'dqn'
+        ? (state?.meta?.dqnAvailable
+          ? 'Checkpoint DQN (models/dqn_best.pt) đã sẵn sàng. Có thể chạy ngay ở Giám sát/Thử nghiệm hoặc huấn luyện lại tại đây.'
+          : 'Chưa có checkpoint DQN. Bấm Bắt đầu huấn luyện để tạo models/dqn_best.pt.')
+        : 'Chưa kết nối dịch vụ huấn luyện Q-Learning.'} />
       <Status message={error} error />
       <Status message={message} />
-      <div className="study-actions"><button type="button" disabled>Bắt đầu huấn luyện</button></div>
+      <div className="study-actions">
+        <button type="submit" disabled={!canTrain}>{busy ? 'Đang huấn luyện DQN…' : 'Bắt đầu huấn luyện'}</button>
+      </div>
     </form>
   </Section>;
 }
 
 export function Experiment({ profile, state, addRun }) {
+  const dqnReady = Boolean(state.meta?.dqnAvailable);
+  const [algorithm, setAlgorithm] = useState(dqnReady ? 'dqn' : 'baseline');
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const selectedAlgorithm = algorithm === 'dqn' && !dqnReady ? 'baseline' : algorithm;
+
   async function run(event) {
     event.preventDefault();
     setError('');
     setMessage('');
     setBusy(true);
     try {
-      const weather = validateWeather(await readJson(file), state.meta.maxDays);
+      const weather = file ? validateWeather(await readJson(file), state.meta.maxDays) : undefined;
       const chosen = profile ?? { crop: state.crop, scenario: state.scenario, seed: state.seed };
       const payload = await api.createSession({
-        ...chosen, weather, startDay: state.meta.maxDays,
+        ...chosen,
+        policy: selectedAlgorithm,
+        weather,
+        startDay: state.meta.maxDays,
       }, { timeoutMs: 15000 });
       const episode = normalizeEpisode(payload);
-      const result = runRow(episode, 'baseline', chosen, file.name);
+      const title = file ? file.name : `Kịch bản ${chosen.scenario}`;
+      const result = runRow(episode, selectedAlgorithm, chosen, title);
       addRun(result);
-      setMessage(`Thử nghiệm Baseline hoàn tất. Đã lưu ${result.series.length} bước để xem báo cáo.`);
+      setMessage(`Thử nghiệm ${STRATEGIES[selectedAlgorithm]} hoàn tất. Đã lưu ${result.series.length} bước để xem báo cáo và so sánh.`);
     } catch (issue) {
       setError(issue.message);
     } finally {
@@ -214,13 +278,14 @@ export function Experiment({ profile, state, addRun }) {
   return <Section title="Thử nghiệm đa kịch bản">
     <form onSubmit={run}>
       <div className="study-grid">
-        <label>Nguồn kịch bản thời tiết<input type="file" accept=".json,application/json" required disabled={busy} onChange={(e) => setFile(e.target.files[0])} /></label>
-        <label>Mô hình<select defaultValue="baseline" disabled={busy}>
+        <label>Nguồn kịch bản thời tiết (tùy chọn)<input type="file" accept=".json,application/json" disabled={busy} onChange={(e) => setFile(e.target.files[0] ?? null)} /></label>
+        <label>Mô hình<select value={selectedAlgorithm} disabled={busy} onChange={(e) => setAlgorithm(e.target.value)}>
+          <option value="dqn" disabled={!dqnReady}>{dqnReady ? STRATEGIES.dqn : 'DQN · chưa có checkpoint'}</option>
           <option value="baseline">{STRATEGIES.baseline}</option>
-          <option disabled>Q-Learning · chưa có mô hình</option><option disabled>DQN · chưa có mô hình</option>
+          <option disabled>Q-Learning · chưa có mô hình</option>
         </select></label>
       </div>
-      <p className="study-status">JSON gồm {state.meta.maxDays + 1} dòng có các trường <code>temperature</code>, <code>rain_probability</code>, <code>rain_forecast_mm</code> và <code>actual_rain_mm</code>.</p>
+      <p className="study-status">Để trống tệp JSON để dùng kịch bản hiện hành (<code>{profile?.scenario ?? state.scenario}</code>, seed <code>{profile?.seed ?? state.seed}</code>), hoặc tải tệp JSON gồm {state.meta.maxDays + 1} bản ghi thời tiết để đối chiếu cố định.</p>
       <Status message={message} />
       <Status message={error} error />
       <div className="study-actions"><button disabled={busy} type="submit">{busy ? 'Đang chạy thử nghiệm…' : 'Chạy thử nghiệm'}</button></div>

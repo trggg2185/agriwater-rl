@@ -130,15 +130,15 @@ export function runRow(episode, algorithm, profile, title) {
   };
 }
 
-/** Training Logs CSV của lớp lưu trữ. Loss bỏ trống cho thuật toán không có Loss. */
+/** Training Logs CSV của lớp lưu trữ. Hỗ trợ cả cột reward/loss và total_reward/mean_loss. */
 export function trainingLog(text) {
   const [heading, ...lines] = text.replace(/^\uFEFF/, '').trim().split(/\r?\n/);
   const fields = heading.split(',').map((field) => field.trim().toLowerCase());
   const episode = fields.indexOf('episode');
-  const reward = fields.indexOf('reward');
-  const loss = fields.indexOf('loss');
+  const reward = fields.indexOf('reward') >= 0 ? fields.indexOf('reward') : fields.indexOf('total_reward');
+  const loss = fields.indexOf('loss') >= 0 ? fields.indexOf('loss') : fields.indexOf('mean_loss');
   if (episode < 0 || reward < 0 || !lines.length) {
-    throw new Error('CSV cần các cột episode, reward và ít nhất một dòng dữ liệu. Cột loss là tùy chọn.');
+    throw new Error('CSV cần các cột episode, reward (hoặc total_reward) và ít nhất một dòng dữ liệu.');
   }
   let previous = -1;
   return lines.filter((line) => line.trim()).map((line, index) => {

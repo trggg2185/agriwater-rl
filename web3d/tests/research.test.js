@@ -35,4 +35,7 @@ it('kiểm tra số chiều thời tiết và đọc nhật ký Reward/Loss có 
   expect(trainingLog('episode,reward,loss\n1,-92,\n2,100,0.4')).toEqual([
     { day: 1, reward: -92, loss: null }, { day: 2, reward: 100, loss: .4 },
   ]);
+  expect(trainingLog('episode,steps,total_reward,mean_loss\n1,30,-50,1.25')).toEqual([
+    { day: 1, reward: -50, loss: 1.25 },
+  ]);
 });

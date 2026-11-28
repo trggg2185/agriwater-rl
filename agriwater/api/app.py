@@ -95,6 +95,7 @@ class SessionRequest(BaseModel):
     scenario: Literal["dry", "stormy", "random"] = "dry"
     seed: int = Field(default=42, ge=0, le=2**32 - 1)
     crop: int = Field(default=0, ge=0, le=3)
+    policy: Literal["baseline", "dqn"] = "baseline"
     #: Ngày đầu tiên trôi qua ngay khi mở ván, để giao diện luôn có dữ liệu để vẽ.
     initial_action: int | None = Field(default=None, ge=0, le=5)
     start_day: int = Field(default=1, ge=1)
@@ -106,6 +107,15 @@ class StepRequest(BaseModel):
     session_id: str = Field(min_length=1)
     action: int = Field(ge=0, le=5)
     automatic: bool = False
+
+
+class TrainDQNRequest(BaseModel):
+    scenario: Literal["dry", "stormy", "random", "mixed"] = "mixed"
+    episodes: int = Field(default=50, ge=5, le=2000)
+    learning_rate: float = Field(default=0.001, gt=0, le=1)
+    gamma: float = Field(default=0.99, ge=0, lt=1)
+    epsilon_start: float = Field(default=1.0, ge=0, le=1)
+    seed: int = Field(default=42, ge=0, le=2**32 - 1)
 
 
 def _payload(session: Session) -> dict[str, Any]:
@@ -186,6 +196,11 @@ def create_session(payload: SessionRequest) -> dict[str, Any]:
 
     if payload.start_day > int(config["max_days"]):
         raise HTTPException(status_code=422, detail="Ngày bắt đầu vượt quá chu kỳ mô phỏng")
+    if payload.policy == "dqn":
+        try:
+            runtime.load_dqn_agent()
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
     try:
         env, obs = runtime.open_environment(
             scenario=payload.scenario,
@@ -206,14 +221,17 @@ def create_session(payload: SessionRequest) -> dict[str, Any]:
         seed=payload.seed,
         crop=payload.crop,
         obs=obs,
+        policy=payload.policy,
     )
     if payload.initial_action is not None:
         action = payload.initial_action
+    elif payload.policy == "dqn" or payload.start_day > 1:
+        action = runtime.policy_action(session.policy, session.obs)
     else:
-        action = runtime.baseline_action(session.obs) if payload.start_day > 1 else 0
+        action = 0
     _step(session, action)
     while len(session.series) < payload.start_day and not session.done:
-        _step(session, runtime.baseline_action(session.obs))
+        _step(session, runtime.policy_action(session.policy, session.obs))
 
     session_id = uuid.uuid4().hex
     with _SESSIONS_LOCK:
@@ -223,10 +241,63 @@ def create_session(payload: SessionRequest) -> dict[str, Any]:
 
 @app.post("/api/step")
 def step(payload: StepRequest) -> dict[str, Any]:
-    """Chạy một ngày với mức tưới chỉ định hoặc theo chính sách baseline."""
+    """Chạy một ngày với mức tưới chỉ định hoặc theo chính sách tự động của session."""
     session = _lookup(payload.session_id)
     with session.lock:
-        action = runtime.baseline_action(session.obs) if payload.automatic else payload.action
+        if payload.automatic:
+            try:
+                action = runtime.policy_action(session.policy, session.obs)
+            except FileNotFoundError as exc:
+                raise HTTPException(status_code=503, detail=str(exc)) from exc
+        else:
+            action = payload.action
         _step(session, action)
         body = _payload(session)
     return {"session_id": payload.session_id, **body}
+
+
+@app.post("/api/train/dqn")
+def train_dqn(payload: TrainDQNRequest) -> dict[str, Any]:
+    """Huấn luyện DQNAgent trực tiếp từ giao diện, lưu checkpoint và trả về learning curve."""
+    from agriwater.agents.dqn import DQNAgent
+    from agriwater.config import load_config
+    from agriwater.training.train import train
+
+    dqn_cfg = dict(load_config("training").get("dqn") or {})
+    dqn_cfg["learning_rate"] = payload.learning_rate
+    dqn_cfg["gamma"] = payload.gamma
+    dqn_cfg["epsilon_start"] = payload.epsilon_start
+    dqn_cfg["epsilon_end"] = min(float(dqn_cfg.get("epsilon_end", 0.05)), payload.epsilon_start)
+    scenarios = runtime.SCENARIOS if payload.scenario == "mixed" else (payload.scenario,)
+    agent = DQNAgent(dqn_cfg, seed=payload.seed)
+    env = AgriWaterEnv(scenario=scenarios[0])
+    try:
+        result = train(
+            agent,
+            env,
+            episodes=payload.episodes,
+            seed=payload.seed,
+            checkpoint_path=runtime.DEFAULT_DQN_MODEL,
+            eval_episodes=3,
+            eval_every=max(10, payload.episodes // 5),
+            scenarios=scenarios,
+        )
+    finally:
+        env.close()
+    runtime.clear_dqn_cache()
+    series = [
+        {
+            "day": int(row["episode"]),
+            "reward": round(float(row["total_reward"]), 4),
+            "loss": round(float(row["mean_loss"]), 6),
+        }
+        for row in result["history"]
+    ]
+    return {
+        "algorithm": "dqn",
+        "episodes": len(series),
+        "best_val_reward": result["best_val_reward"],
+        "best_episode": result["best_episode"],
+        "dqn_available": runtime.dqn_available(),
+        "series": series,
+    }

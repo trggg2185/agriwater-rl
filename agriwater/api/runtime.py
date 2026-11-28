@@ -9,6 +9,7 @@ luôn cùng một định dạng — đổi một chỗ là cả hai đổi theo
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -39,11 +40,49 @@ BASELINE_THRESHOLD = 0.30
 BASELINE_ACTION = 4
 
 SCENARIOS = ("dry", "stormy", "random")
+DEFAULT_DQN_MODEL = Path(__file__).resolve().parents[2] / "models" / "dqn_best.pt"
+_DQN_CACHE: tuple[Path, int, Any] | None = None
 
 
 def baseline_action(observation: np.ndarray) -> int:
     """Chọn mức tưới của baseline theo độ ẩm trước bước mô phỏng."""
     return BASELINE_ACTION if decode_observation(observation)["moisture"] < BASELINE_THRESHOLD else 0
+
+
+def dqn_available(model_path: Path | None = None) -> bool:
+    """Kiểm tra checkpoint DQN đã tồn tại trên đĩa hay chưa."""
+    return (DEFAULT_DQN_MODEL if model_path is None else Path(model_path)).is_file()
+
+
+def clear_dqn_cache() -> None:
+    """Xóa bộ nhớ đệm checkpoint DQN (gọi sau khi huấn luyện lại)."""
+    global _DQN_CACHE
+    _DQN_CACHE = None
+
+
+def load_dqn_agent(model_path: Path | None = None) -> Any:
+    """Nạp và cache DQNAgent theo thời gian sửa đổi file checkpoint."""
+    global _DQN_CACHE
+    path = DEFAULT_DQN_MODEL if model_path is None else Path(model_path)
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"Chưa tìm thấy checkpoint DQN tại {path}. Hãy huấn luyện DQN trước."
+        )
+    mtime = path.stat().st_mtime_ns
+    if _DQN_CACHE is not None and _DQN_CACHE[0] == path and _DQN_CACHE[1] == mtime:
+        return _DQN_CACHE[2]
+    from agriwater.agents.dqn import DQNAgent
+
+    agent = DQNAgent.from_checkpoint(path)
+    _DQN_CACHE = (path, mtime, agent)
+    return agent
+
+
+def policy_action(policy: str, observation: np.ndarray, *, model_path: Path | None = None) -> int:
+    """Chọn hành động 0..5 theo chính sách hiện hành ('baseline' hoặc 'dqn')."""
+    if policy == "dqn":
+        return int(load_dqn_agent(model_path).select_action(observation, training=False))
+    return baseline_action(observation)
 
 
 def _round(value: Any, digits: int = 6) -> float:
@@ -113,6 +152,7 @@ def build_meta(config: dict[str, Any]) -> dict[str, Any]:
             "stressBounds": list(moisture["stress_bounds"]),
         },
         "growthStageDays": list(config["growth_stage_days"]),
+        "dqnAvailable": dqn_available(),
     }
 
 
