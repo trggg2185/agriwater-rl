@@ -43,6 +43,17 @@ export function clear(node) {
   while (node.firstChild) node.removeChild(node.firstChild);
 }
 
+export function setText(node, text) {
+  if (node.textContent === text) return;
+  const child = node.firstChild;
+  if (child && child === node.lastChild && child.nodeType === 3) child.data = text;
+  else node.textContent = text;
+}
+
+export function setAttr(node, name, value) {
+  if (node.getAttribute(name) !== value) node.setAttribute(name, value);
+}
+
 export function on(node, type, handler, options) {
   node.addEventListener(type, handler, options);
   return () => node.removeEventListener(type, handler, options);

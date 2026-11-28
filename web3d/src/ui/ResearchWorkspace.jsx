@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import * as api from '../data/apiClient.js';
 import { normalizeEpisode } from '../data/replay.js';
 import { actualRainField, alignRuns, episodeOverview, importRun, observationFields, runRow, STRATEGIES, summarize, switchScenario, trainingLog, validateProfile, validateWeather } from '../data/research.js';
@@ -156,7 +156,13 @@ export function Environment({ profile, save, state, apply }) {
   </Section>;
 }
 
-export function Training({ profile, state, addRun, refreshPolicies, navigate }) {
+export function Training({ profile, store, addRun, refreshPolicies, navigate }) {
+  const apiConnected = useSyncExternalStore(store.subscribe, () => store.getState().apiConnected);
+  const seed = useSyncExternalStore(store.subscribe, () => profile?.seed ?? store.getState().seed);
+  const scenarioLabel = useSyncExternalStore(store.subscribe, () => {
+    if (!profile) return null;
+    return store.getState().meta.scenarios.find(({ key }) => key === profile.scenario)?.label ?? profile.scenario;
+  });
   const [algorithm, setAlgorithm] = useState('q_learning');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -222,7 +228,7 @@ export function Training({ profile, state, addRun, refreshPolicies, navigate }) 
       const job = await api.startTraining({
         algorithm,
         scenario: profile?.scenario ?? 'mixed',
-        seed: profile?.seed ?? state.seed,
+        seed,
         total_timesteps: Number(data.get('totalTimesteps')),
         learning_rate: Number(learningRate),
         gamma: Number(data.get('gamma')),
@@ -273,18 +279,18 @@ export function Training({ profile, state, addRun, refreshPolicies, navigate }) 
         </div>
       </details>
       <p className="study-status">
-        {profile ? `Kịch bản ${state.meta.scenarios.find(({ key }) => key === profile.scenario)?.label ?? profile.scenario} · Seed ${profile.seed}` : `Kết hợp ba kịch bản · seed ${state.seed}`}.
+        {scenarioLabel ? `Kịch bản ${scenarioLabel} · Seed ${seed}` : `Kết hợp ba kịch bản · seed ${seed}`}.
         {' '}Sau khi hoàn tất, mô hình mới sẽ được dùng cho các phiên mở sau đó.
       </p>
       {progress && <div className="study-progress" role="status">
         <progress aria-label="Tiến độ huấn luyện" value={progress.timesteps} max={progress.targetTimesteps} />
         <span>{progress.timesteps}/{progress.targetTimesteps} bước mô phỏng · {progress.completedEpisodes} tập đã ghi</span>
       </div>}
-      <Status message={!state.apiConnected && !busy ? 'Chưa kết nối được API huấn luyện.' : ''} />
+      <Status message={!apiConnected && !busy ? 'Chưa kết nối được API huấn luyện.' : ''} />
       <Status message={error} error />
       <Status message={message} />
       <div className="study-actions">
-        <button className="is-primary" type="submit" disabled={busy || !state.apiConnected}>{busy ? 'Đang huấn luyện…' : 'Bắt đầu huấn luyện'}</button>
+        <button className="is-primary" type="submit" disabled={busy || !apiConnected}>{busy ? 'Đang huấn luyện…' : 'Bắt đầu huấn luyện'}</button>
         {progress?.status === 'completed' && <button type="button" onClick={() => navigate('monitor')}>Về Ruộng để chọn mô hình</button>}
       </div>
     </form>

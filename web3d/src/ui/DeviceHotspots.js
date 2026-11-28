@@ -9,13 +9,12 @@ export function DeviceHotspots(store, scene) {
   function sync(state) {
     const controls = state.view === 'device';
     const { pumpOn, liters, openMask } = fieldIrrigationStatus(state, SCENE.sprinklers.headCount);
-    for (const { index, button, marker, status } of devices.values()) {
+    for (const { index, button, marker } of devices.values()) {
       const enabled = state.openHeads?.[index] !== false;
       const active = openMask[index];
       button.hidden = !controls;
       marker.classList.toggle('is-on', active);
       marker.classList.toggle('is-controlled', controls);
-      status.textContent = `S${index + 1}: ${active ? 'PHUN' : enabled ? 'CHỜ' : 'TẮT'}`;
       button.classList.toggle('is-on', active);
       button.classList.toggle('is-standby', enabled && pumpOn && !active && liters > 0);
       button.setAttribute('aria-pressed', String(enabled));
@@ -36,15 +35,13 @@ export function DeviceHotspots(store, scene) {
           heads[index] = !heads[index];
           store.setState({ openHeads: heads });
         });
-        const status = el('span', { class: 'hotspot-marker__label' });
         const marker = el('span', { class: 'hotspot-marker', 'aria-hidden': 'true' }, [
           el('span', { class: 'hotspot-marker__spray' }),
           el('span', { class: 'hotspot-marker__dot' }),
-          status,
           index === 3 && el('span', { class: 'hotspot-marker__callout' }, 'Vòi phun tự động'),
         ]);
         const pin = el('div', { class: 'hotspot-pin' }, [marker, button]);
-        devices.set(point.id, { index, button, marker, status, pin });
+        devices.set(point.id, { index, button, marker, pin });
         node.append(pin);
         sync(store.getState());
       }

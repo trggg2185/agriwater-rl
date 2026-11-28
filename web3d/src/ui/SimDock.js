@@ -5,7 +5,7 @@
 import { SCENE, UI } from '../config.js';
 import { irrigationBlock } from '../utils/irrigationZones.js';
 import { seek } from '../data/playback.js';
-import { el, icon } from '../utils/dom.js';
+import { el, icon, setAttr, setText } from '../utils/dom.js';
 
 export function SimDock(store, actions) {
   const day = el('span', { class: 'dock__day' });
@@ -76,8 +76,6 @@ export function SimDock(store, actions) {
     class: 'dock__select dock__select--water',
     'aria-label': 'Mức nước tưới (0 = không tưới)',
   });
-  let waterBuilt = false;
-
   function buildWaterOptions(actionLiters) {
     waterSelect.replaceChildren();
     waterSelect.append(el('option', { value: 'auto' }, 'Tưới: theo dữ liệu'));
@@ -90,7 +88,6 @@ export function SimDock(store, actions) {
         ),
       );
     }
-    waterBuilt = true;
   }
 
   waterSelect.addEventListener('change', () => {
@@ -155,7 +152,7 @@ export function SimDock(store, actions) {
     const block = irrigationBlock(state, planned ?? 0, SCENE.sprinklers.headCount);
     const hardwareBlock = live && !historical && !finished && !state.simulationBusy
       ? irrigationBlock(state, 1, SCENE.sprinklers.headCount) : '';
-    day.textContent = `Ngày ${String(state.day).padStart(2, '0')} / ${live ? total : recorded}`;
+    setText(day, `Ngày ${String(state.day).padStart(2, '0')} / ${live ? total : recorded}`);
     slider.max = String(live ? total : recorded);
     slider.value = String(state.day);
     slider.style.setProperty('--timeline-progress', `${(state.day - 1) / Math.max(1, Number(slider.max) - 1) * 100}%`);
@@ -166,8 +163,8 @@ export function SimDock(store, actions) {
     const label = state.simulationBusy ? 'Đang cập nhật…'
       : finished && !historical ? 'Vụ mới'
         : planned != null ? (planned > 0 ? `Tưới ${planned} L` : 'Qua ngày, không tưới') : 'Ngày tiếp';
-    nextLabel.textContent = label;
-    next.setAttribute('aria-label', label);
+    setText(nextLabel, label);
+    setAttr(next, 'aria-label', label);
     next.disabled = state.simulationBusy || (!live && state.day >= recorded)
       || (planned != null && Boolean(block));
     playButton.disabled = !state.playing
@@ -176,25 +173,32 @@ export function SimDock(store, actions) {
 
     const message = block || (planned != null ? `Áp dụng cho ngày ${recorded + 1}.` : '');
     status.hidden = !message;
-    status.textContent = message;
-    playButton.replaceChildren(icon(state.playing ? 'pause' : 'play'));
-    playButton.setAttribute('aria-label', state.playing ? 'Tạm dừng mô phỏng' : 'Phát mô phỏng');
+    setText(status, message);
+    const playLabel = state.playing ? 'Tạm dừng mô phỏng' : 'Phát mô phỏng';
+    if (playButton.getAttribute('aria-label') !== playLabel) {
+      playButton.replaceChildren(icon(state.playing ? 'pause' : 'play'));
+      playButton.setAttribute('aria-label', playLabel);
+    }
     for (const item of speedButtons) {
       item.button.classList.toggle('is-active', item.speed === state.speed);
     }
     const actionLiters = state.meta?.actionLiters ?? [];
-    if (!waterBuilt || waterSelect.options.length !== actionLiters.length + 1) {
+    if (waterSelect.options.length !== actionLiters.length + 1
+      || actionLiters.some((liters, index) => waterSelect.options[index + 1]?.value !== String(liters))) {
       buildWaterOptions(actionLiters);
     }
-    waterSelect.options[0].textContent = live
+    setText(waterSelect.options[0], live
       ? (hardwareBlock ? 'Tưới: tạm khóa' : state.autoIrrigation ? 'Tưới: tự động' : 'Tưới: không tưới')
-      : 'Tưới: theo dữ liệu';
-    waterSelect.disabled = state.simulationBusy || historical || finished;
+      : 'Tưới: theo dữ liệu');
+    const waterDisabled = state.simulationBusy || historical || finished;
+    if (waterSelect.disabled !== waterDisabled) waterSelect.disabled = waterDisabled;
     for (const option of waterSelect.options) {
-      option.disabled = option.value !== 'auto'
+      const disabled = option.value !== 'auto'
         && Boolean(irrigationBlock(state, Number(option.value), SCENE.sprinklers.headCount));
+      if (option.disabled !== disabled) option.disabled = disabled;
     }
-    waterSelect.value = state.previewAction == null ? 'auto' : String(state.previewAction);
+    const waterValue = state.previewAction == null ? 'auto' : String(state.previewAction);
+    if (waterSelect.value !== waterValue) waterSelect.value = waterValue;
 
     if (policies !== state.policies) {
       policies = state.policies;
@@ -206,8 +210,10 @@ export function SimDock(store, actions) {
         return option;
       }));
     }
-    policySelect.value = state.policy ?? 'baseline';
-    policySelect.disabled = state.simulationBusy || !live;
+    const policyValue = state.policy ?? 'baseline';
+    if (policySelect.value !== policyValue) policySelect.value = policyValue;
+    const policyDisabled = state.simulationBusy || !live;
+    if (policySelect.disabled !== policyDisabled) policySelect.disabled = policyDisabled;
 
     modeSelect.value = state.mode;
   }

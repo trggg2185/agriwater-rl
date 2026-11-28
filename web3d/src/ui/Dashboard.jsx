@@ -16,9 +16,28 @@ function readSaved(key, fallback) {
   }
 }
 
+function ResearchViews({ store, actions, profile, saveProfile, runs, addRun, navigate }) {
+  const state = useSyncExternalStore(store.subscribe, () => {
+    const current = store.getState();
+    return current.view === 'monitor' || current.view === 'training' ? null : current;
+  });
+  switch (state?.view) {
+    case 'environment':
+      return <Environment profile={profile} save={saveProfile} state={state} apply={actions.applyProfile} />;
+    case 'experiment':
+      return <Experiment profile={profile} state={state} addRun={addRun} navigate={navigate} />;
+    case 'compare':
+      return <Compare runs={runs.filter((run) => run.kind !== 'training')} addRun={addRun} meta={state.meta} navigate={navigate} />;
+    case 'report':
+      return <Report runs={runs} state={state} />;
+    default:
+      return null;
+  }
+}
+
 export function Dashboard({ store, actions }) {
-  const state = useSyncExternalStore(store.subscribe, store.getState);
-  const { view } = state;
+  const view = useSyncExternalStore(store.subscribe, () => store.getState().view);
+  const storageWarning = useSyncExternalStore(store.subscribe, () => store.getState().storageWarning);
   const [profile, setProfile] = useState(() => readSaved('agriwater.environment.v1', null));
   const [runs, setRuns] = useState(() => readSaved('agriwater.results.v1', []));
   const runsRef = useRef(runs);
@@ -39,10 +58,10 @@ export function Dashboard({ store, actions }) {
     runsRef.current = next;
     setRuns(next);
   }, [store]);
-  function navigate(view) {
+  const navigate = useCallback((view) => {
     store.setState({ view, playing: false });
     window.scrollTo(0, 0);
-  }
+  }, [store]);
 
   return (
     <>
@@ -64,13 +83,13 @@ export function Dashboard({ store, actions }) {
           })}
         </nav>
       </header>
-      <main className="workspace">
-        {state.storageWarning && <p className="study-status" role="status">{state.storageWarning}</p>}
+      <main className={view === 'monitor' ? 'workspace workspace--field' : 'workspace'}>
+        {storageWarning && <p className="study-status" role="status">{storageWarning}</p>}
         <div className="workspace-intro" hidden={view !== 'monitor'}>
           <div className="workspace-heading" />
           <button type="button" className="workspace-button" onClick={() => navigate('environment')}>Thiết lập ruộng</button>
         </div>
-        <div className="workspace-grid grid items-start" hidden={view !== 'monitor'}>
+        <div className="workspace-grid grid" hidden={view !== 'monitor'}>
           <section className="field overflow-hidden" aria-labelledby="field-title">
             <div className="field__scene relative">
               <div className="field__viewport overflow-hidden">
@@ -93,13 +112,11 @@ export function Dashboard({ store, actions }) {
           <summary>Dữ liệu ruộng và nhật ký</summary>
           <div className="workspace-data min-w-0" />
         </details>
-        {view === 'environment' && <Environment profile={profile} save={saveProfile} state={state} apply={actions.applyProfile} />}
         <div hidden={view !== 'training'}>
-          <Training profile={profile} state={state} addRun={addRun} refreshPolicies={actions.refreshPolicies} navigate={navigate} />
+          <Training profile={profile} store={store} addRun={addRun} refreshPolicies={actions.refreshPolicies} navigate={navigate} />
         </div>
-        {view === 'experiment' && <Experiment profile={profile} state={state} addRun={addRun} navigate={navigate} />}
-        {view === 'compare' && <Compare runs={runs.filter((run) => run.kind !== 'training')} addRun={addRun} meta={state.meta} navigate={navigate} />}
-        {view === 'report' && <Report runs={runs} state={state} />}
+        <ResearchViews store={store} actions={actions} profile={profile} saveProfile={saveProfile}
+          runs={runs} addRun={addRun} navigate={navigate} />
       </main>
     </>
   );

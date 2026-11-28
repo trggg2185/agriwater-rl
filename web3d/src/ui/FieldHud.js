@@ -1,7 +1,7 @@
 import { SCENE } from '../config.js';
 import { fieldIrrigationStatus } from '../utils/irrigationZones.js';
 import { weatherCondition } from '../utils/colors.js';
-import { el, icon } from '../utils/dom.js';
+import { el, icon, setAttr, setText } from '../utils/dom.js';
 import { formatNumber } from '../utils/math.js';
 import { fbm, hash2 } from '../utils/noise.js';
 
@@ -154,47 +154,54 @@ export function FieldHud(store, actions) {
   ])]);
   auto.addEventListener('click', () => store.setState((state) => ({ autoIrrigation: !state.autoIrrigation })));
 
+  let displayedSeries;
+  let displayedDay;
   const unsub = store.subscribe((state) => {
     const latest = state.day === state.series.length;
     const record = state.series[state.day - 1];
     if (!record) return;
     const finished = state.series.at(-1)?.terminated || state.series.at(-1)?.truncated;
     const blocked = state.dataSource !== 'api' || !latest || finished || state.simulationBusy;
-    latestDay.hidden = latest;
-    latestDay.disabled = state.simulationBusy;
-    applyWeather.disabled = blocked;
-    weatherChoice.disabled = blocked;
-    weatherHint.textContent = state.dataSource !== 'api' ? 'Chỉ chỉnh được thời tiết trong phiên live.'
+    if (latestDay.hidden !== latest) latestDay.hidden = latest;
+    if (latestDay.disabled !== state.simulationBusy) latestDay.disabled = state.simulationBusy;
+    if (applyWeather.disabled !== blocked) applyWeather.disabled = blocked;
+    if (weatherChoice.disabled !== blocked) weatherChoice.disabled = blocked;
+    setText(weatherHint, state.dataSource !== 'api' ? 'Chỉ chỉnh được thời tiết trong phiên live.'
       : finished ? 'Vụ đã kết thúc.'
         : !latest ? 'Về ngày mới nhất để chỉnh thời tiết.'
-          : `Áp dụng từ ngày ${state.day + 1}. Hiệu ứng cập nhật ngay trên ruộng.`;
-    applyWeather.textContent = state.simulationBusy ? 'Đang cập nhật…' : 'Áp dụng';
+          : `Áp dụng từ ngày ${state.day + 1}. Hiệu ứng cập nhật ngay trên ruộng.`);
+    setText(applyWeather, state.simulationBusy ? 'Đang cập nhật…' : 'Áp dụng');
     const upcoming = latest ? state.upcomingWeather : null;
     const displayed = upcoming ?? record;
     const forecastCondition = weatherCondition(displayed.rainProbability, displayed.rainForecastMm);
     const observed = displayed.actualRainMm >= 15 ? 'storm'
       : displayed.actualRainMm > 0 ? 'rain'
         : forecastCondition.key === 'sun' ? 'sun' : 'cloud';
-    atmosphere.dataset.weather = observed;
+    if (atmosphere.dataset.weather !== observed) atmosphere.dataset.weather = observed;
     const rainLabel = upcoming ? `Ngày ${upcoming.day} · ${WEATHER_LABELS[observed]}`
       : `${WEATHER_LABELS[observed]} · mưa thực tế`;
-    weather.textContent = `${rainLabel} ${formatNumber(displayed.actualRainMm, 1)} mm`;
+    setText(weather, `${rainLabel} ${formatNumber(displayed.actualRainMm, 1)} mm`);
     const { openMask } = fieldIrrigationStatus(state, SCENE.sprinklers.headCount);
     const spraying = openMask.some(Boolean);
-    pump.textContent = spraying
+    setText(pump, spraying
       ? state.previewAction != null ? 'Xem thử tưới' : 'Bơm đang tưới'
-      : 'Bơm nghỉ';
-    moisture.textContent = `${formatNumber(record.moisture * 100, 1)}%`;
-    ideal.textContent = record.isIdeal ? 'Trong vùng lý tưởng'
-      : record.isStressed ? 'Cây đang bị stress' : 'Ngoài vùng lý tưởng';
-    water.textContent = `${formatNumber(record.waterLiters, 0)} L`;
-    const cumulative = state.series.slice(0, state.day).reduce((sum, item) => sum + item.waterLiters, 0);
-    total.textContent = `${formatNumber(cumulative, 0)} L tích lũy`;
-    reward.textContent = `Thưởng trong ngày ${record.reward > 0 ? '+' : ''}${formatNumber(record.reward, 1)}`;
-    auto.disabled = state.dataSource !== 'api' || state.simulationBusy;
+      : 'Bơm nghỉ');
+    if (displayedSeries !== state.series || displayedDay !== state.day) {
+      displayedSeries = state.series;
+      displayedDay = state.day;
+      setText(moisture, `${formatNumber(record.moisture * 100, 1)}%`);
+      setText(ideal, record.isIdeal ? 'Trong vùng lý tưởng'
+        : record.isStressed ? 'Cây đang bị stress' : 'Ngoài vùng lý tưởng');
+      setText(water, `${formatNumber(record.waterLiters, 0)} L`);
+      const cumulative = state.series.slice(0, state.day).reduce((sum, item) => sum + item.waterLiters, 0);
+      setText(total, `${formatNumber(cumulative, 0)} L tích lũy`);
+      setText(reward, `Thưởng trong ngày ${record.reward > 0 ? '+' : ''}${formatNumber(record.reward, 1)}`);
+    }
+    const autoDisabled = state.dataSource !== 'api' || state.simulationBusy;
+    if (auto.disabled !== autoDisabled) auto.disabled = autoDisabled;
     const enabled = state.dataSource === 'api' && state.autoIrrigation;
-    playing.textContent = enabled ? 'Bật' : 'Tắt';
-    auto.setAttribute('aria-checked', String(Boolean(enabled)));
+    setText(playing, enabled ? 'Bật' : 'Tắt');
+    setAttr(auto, 'aria-checked', String(Boolean(enabled)));
   });
 
   return {
